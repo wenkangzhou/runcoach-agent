@@ -1,0 +1,26 @@
+[
+  {
+    "date": "2026-06-08",
+    "distance": 8,
+    "pace": "5:40",
+    "hr": 145,
+    "feeling": "tired",
+    "notes": "工作日晚跑，睡眠不足"
+  },
+  {
+    "date": "2026-06-06",
+    "distance": 15,
+    "pace": "5:20",
+    "hr": 152,
+    "feeling": "good",
+    "notes": "周末长距离，后半程小腿紧"
+  },
+  {
+    "date": "2026-06-04",
+    "distance": 6,
+    "pace": "5:50",
+    "hr": 138,
+    "feeling": "easy",
+    "notes": "恢复跑"
+  }
+]
