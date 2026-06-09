@@ -20,7 +20,7 @@ async function main() {
   console.log("=".repeat(50));
 
   try {
-    const { answer, toolCalls, iterations } = await runAgent(userQuestion);
+    const { answer, toolCalls, iterations, memoryUpdate } = await runAgent(userQuestion);
 
     console.log("\n" + "=".repeat(50));
     console.log("📤 最终回答:");
@@ -28,6 +28,11 @@ async function main() {
     console.log("=".repeat(50));
     console.log(`🔧 工具调用次数: ${toolCalls.length}`);
     console.log(`🔄 总迭代次数: ${iterations}`);
+
+    if (memoryUpdate) {
+      console.log("\n🧠 Memory 更新:");
+      console.log(memoryUpdate);
+    }
 
     if (toolCalls.length > 0) {
       console.log("\n📋 工具调用详情:");
