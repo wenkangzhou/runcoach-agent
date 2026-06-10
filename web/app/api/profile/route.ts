@@ -1,0 +1,61 @@
+/**
+ * API 路由: /api/profile
+ * GET: 获取用户画像
+ * POST: 更新用户画像
+ */
+
+import { NextRequest, NextResponse } from "next/server";
+import { join } from "path";
+
+// 使用 new Function 绕过 webpack 静态分析，动态加载 .ts 文件
+async function loadMemoryStore() {
+  const storePath = join(process.cwd(), "src", "memory", "store.ts");
+  // eslint-disable-next-line no-new-func
+  const fn = new Function("path", "return import(path)");
+  const { loadMemory, updateProfile } = await fn(storePath);
+  return { loadMemory, updateProfile };
+}
+
+export async function GET() {
+  try {
+    const { loadMemory } = await loadMemoryStore();
+    const memory = loadMemory();
+    return NextResponse.json({
+      success: true,
+      profile: memory.profile,
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { error: "获取画像失败", detail: String(error) },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { goal, weeklyMileage, availableTime, issues, preferredPace, experience } = body;
+
+    const { updateProfile } = await loadMemoryStore();
+    const profile: Record<string, unknown> = {};
+    if (goal !== undefined) profile.goal = goal;
+    if (weeklyMileage !== undefined) profile.weeklyMileage = weeklyMileage;
+    if (availableTime !== undefined) profile.availableTime = availableTime;
+    if (issues !== undefined) profile.issues = issues;
+    if (preferredPace !== undefined) profile.preferredPace = preferredPace;
+    if (experience !== undefined) profile.experience = experience;
+
+    updateProfile(profile);
+
+    return NextResponse.json({
+      success: true,
+      profile,
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { error: "更新画像失败", detail: String(error) },
+      { status: 500 }
+    );
+  }
+}

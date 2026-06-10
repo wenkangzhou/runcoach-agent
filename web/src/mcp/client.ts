@@ -67,7 +67,8 @@ export class RunningMCPClient {
     if (this.mode === "stdio" && this.client) {
       const result = await this.client.callTool({ name, arguments: args });
       // 解析 text 内容
-      const textContent = result.content.find((c) => c.type === "text");
+      const content = result.content as Array<{ type: string; text?: string }>;
+      const textContent = content.find((c) => c.type === "text");
       if (textContent && "text" in textContent) {
         return JSON.parse(textContent.text as string);
       }
