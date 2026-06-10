@@ -7,6 +7,8 @@
  *   MODE=workflow npm run dev -- "问题"  # Workflow 编排模式
  */
 
+import "dotenv/config";
+
 import { runAgent } from "./core/agent.js";
 import { runWorkflowAgent } from "./workflow-agent.js";
 import { runMultiAgent } from "./multi-agent/orchestrator.js";

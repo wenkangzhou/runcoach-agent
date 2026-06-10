@@ -25,6 +25,7 @@ export interface ToolDescription {
 
 /** 工具调用请求 (LLM 输出) */
 export interface ToolCall {
+  id: string;  // OpenAI/Kimi 格式要求
   tool: string;
   args: Record<string, unknown>;
 }
@@ -60,6 +61,9 @@ export interface Message {
   content: string;
   toolCall?: ToolCall;
   toolResult?: ToolResult;
+  // OpenAI/Kimi function calling 兼容字段
+  toolCalls?: Array<{ id: string; type: "function"; function: { name: string; arguments: string } }>;
+  toolCallId?: string;
 }
 
 /** Agent 上下文/状态 */

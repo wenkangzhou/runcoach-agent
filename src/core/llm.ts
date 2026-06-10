@@ -81,20 +81,19 @@ ${t.parameters
     )
     .join("\n---\n");
 
-  return `你是一个跑步训练助手 Agent。你可以使用以下工具来帮助用户：
+  return `你是 RunCoach，一个专业的跑步训练助手 Agent。
+
+你可以使用以下工具来帮助用户：
 
 ${toolDefs}
 
 重要规则：
-1. 如果用户的问题需要工具才能回答，你必须输出工具调用。
+1. 如果用户的问题需要工具才能回答，请调用对应工具。
 2. 如果信息足够直接回答，请直接回答。
 3. 如果用户意图不明确，请提出澄清问题。
 4. 回答要简洁、专业，考虑用户的训练安全和长期目标。
-
-输出格式（严格 JSON）：
-- 调用工具: {"type": "tool", "toolCall": {"tool": "工具名", "args": {...}}}
-- 直接回答: {"type": "answer", "content": "你的回答"}
-- 澄清问题: {"type": "clarify", "question": "你的问题"}`;
+5. 如果用户有伤病信号，建议休息或就医。
+6. 如果用户提到新的个人信息（目标、时间、伤病），记住并在后续建议中考虑。`;
 }
 
 /** 调用 LLM 获取下一步决策 */
@@ -125,37 +124,79 @@ async function callRealLLM(
   const provider = getProvider();
 
   try {
+    // 转换消息为 OpenAI API 格式
+    const apiMessages = messages.map((m) => {
+      if (m.role === "assistant" && m.toolCalls) {
+        return {
+          role: "assistant",
+          content: m.content || null,
+          tool_calls: m.toolCalls,
+        };
+      }
+      if (m.role === "tool" && m.toolCallId) {
+        return {
+          role: "tool",
+          content: m.content,
+          tool_call_id: m.toolCallId,
+        };
+      }
+      return {
+        role: m.role,
+        content: m.content,
+      };
+    });
+
+    // 转换工具为 OpenAI functions 格式
+    const apiTools = tools.map((t) => ({
+      type: "function" as const,
+      function: {
+        name: t.name,
+        description: t.description,
+        parameters: {
+          type: "object" as const,
+          properties: Object.fromEntries(
+            t.parameters.map((p) => [
+              p.name,
+              {
+                type: p.type,
+                description: p.description,
+                ...(p.enum ? { enum: p.enum } : {}),
+              },
+            ])
+          ),
+          required: t.parameters.filter((p) => p.required).map((p) => p.name),
+        },
+      },
+    }));
+
     const completion = await openaiClient.chat.completions.create({
       model,
       temperature: 0.3,
       messages: [
         { role: "system", content: buildSystemPrompt(tools) },
-        ...messages.map((m) => ({
-          role: m.role,
-          content: m.content,
-        })),
+        ...apiMessages,
       ],
+      tools: apiTools,
+      tool_choice: "auto",
     });
 
-    const raw = completion.choices[0].message.content || "";
+    const response = completion.choices[0].message;
 
-    // 尝试解析 JSON
-    try {
-      const parsed = JSON.parse(raw);
-      if (parsed.type === "tool" && parsed.toolCall) {
-        return { type: "tool", toolCall: parsed.toolCall };
-      }
-      if (parsed.type === "answer") {
-        return { type: "answer", content: parsed.content };
-      }
-      if (parsed.type === "clarify") {
-        return { type: "clarify", question: parsed.question };
-      }
-    } catch {
-      // 不是 JSON，当作直接回答
+    // 处理 function call
+    if (response.tool_calls && response.tool_calls.length > 0) {
+      const tc = response.tool_calls[0];
+      return {
+        type: "tool",
+        toolCall: {
+          id: tc.id,
+          tool: tc.function.name,
+          args: JSON.parse(tc.function.arguments),
+        },
+      };
     }
 
-    return { type: "answer", content: raw };
+    // 直接回答
+    return { type: "answer", content: response.content || "" };
   } catch (err) {
     const error = err instanceof Error ? err.message : String(err);
     console.error(`❌ ${provider} API 调用失败:`, error);
@@ -197,6 +238,7 @@ async function callMockLLM(
     return {
       type: "tool",
       toolCall: {
+        id: `call_${Date.now()}`,
         tool: "getWeather",
         args: { city: foundCity || "上海" },
       },
@@ -228,6 +270,7 @@ async function callMockLLM(
         return {
           type: "tool",
           toolCall: {
+            id: `call_${Date.now()}`,
             tool: "calculate",
             args: { expression: fullExprMatch[1].replace(/\s+/g, " ") },
           },
@@ -245,6 +288,7 @@ async function callMockLLM(
     return {
       type: "tool",
       toolCall: {
+        id: `call_${Date.now()}`,
         tool: "retrieveKnowledge",
         args: { query: originalText },
       },
@@ -262,6 +306,7 @@ async function callMockLLM(
       return {
         type: "tool",
         toolCall: {
+          id: `call_${Date.now()}`,
           tool: "parseRunLog",
           args: { text: originalText },
         },
@@ -273,6 +318,7 @@ async function callMockLLM(
       return {
         type: "tool",
         toolCall: {
+          id: `call_${Date.now()}`,
           tool: "suggestNextWorkout",
           args: {
             todayRun: parseRunLogResult.extracted || parseRunLogResult,
@@ -296,6 +342,7 @@ async function callMockLLM(
       return {
         type: "tool",
         toolCall: {
+          id: `call_${Date.now()}`,
           tool: "mcp_get_recent_runs",
           args: { limit: 5, days: 30 },
         },
@@ -308,6 +355,7 @@ async function callMockLLM(
       return {
         type: "tool",
         toolCall: {
+          id: `call_${Date.now()}`,
           tool: "mcp_get_training_profile",
           args: {},
         },

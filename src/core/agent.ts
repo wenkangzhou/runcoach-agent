@@ -119,11 +119,20 @@ export async function runAgent(userInput: string): Promise<{
         console.log(`📦 工具结果: ${JSON.stringify(result.result).slice(0, 200)}`);
       }
 
-      // 3. 将结果加入上下文
+      // 3. 将结果加入上下文（OpenAI/Kimi function calling 格式）
       context.messages.push({
         role: "assistant",
-        content: `调用工具: ${toolCall.tool}`,
-        toolCall,
+        content: "",
+        toolCalls: [
+          {
+            id: toolCall.id,
+            type: "function",
+            function: {
+              name: toolCall.tool,
+              arguments: JSON.stringify(toolCall.args),
+            },
+          },
+        ],
       });
 
       context.messages.push({
@@ -131,7 +140,7 @@ export async function runAgent(userInput: string): Promise<{
         content: result.error
           ? `错误: ${result.error}`
           : JSON.stringify(result.result),
-        toolResult: result,
+        toolCallId: toolCall.id,
       });
     }
   }

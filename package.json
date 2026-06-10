@@ -24,6 +24,7 @@
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
+    "dotenv": "^17.4.2",
     "openai": "^4.85.0"
   },
   "devDependencies": {
