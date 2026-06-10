@@ -4,16 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { join } from "path";
-
-// 使用 new Function 绕过 webpack 静态分析，动态加载 .ts 文件
-async function loadAgent() {
-  const agentPath = join(process.cwd(), "src", "core", "agent.ts");
-  // eslint-disable-next-line no-new-func
-  const fn = new Function("path", "return import(path)");
-  const { runAgent } = await fn(agentPath);
-  return runAgent;
-}
+import { runAgent } from "@/lib/core/agent";
 
 export async function POST(request: NextRequest) {
   try {
@@ -27,7 +18,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const runAgent = await loadAgent();
     const result = await runAgent(message);
 
     return NextResponse.json({

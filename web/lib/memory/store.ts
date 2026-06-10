@@ -2,13 +2,15 @@
  * 简单内存存储
  * Day 4: 加入 Memory，让 Agent 记住用户状态
  * 
- * 当前实现: 本地 JSON 文件
+ * 当前实现: 本地 JSON 文件（本地开发）/ 内存存储（Vercel Serverless）
  * 后续可替换为 SQLite / 向量数据库
  */
 
 import { readFileSync, writeFileSync, existsSync } from "fs";
 import { join } from "path";
 import type { MemoryState, UserProfile, RunLog } from "../core/types.js";
+
+const IS_VERCEL = !!process.env.VERCEL;
 
 const MEMORY_DIR = join(process.cwd(), "data");
 const PROFILE_PATH = join(MEMORY_DIR, "profile.json");
@@ -42,13 +44,42 @@ const DEFAULT_RUNS: RunLog[] = [
   },
 ];
 
+// ========== Vercel 内存存储 ==========
+
+let memoryProfile: UserProfile | null = null;
+let memoryRuns: RunLog[] | null = null;
+
+function getMemoryProfile(): UserProfile {
+  if (!memoryProfile) {
+    memoryProfile = { ...DEFAULT_PROFILE };
+  }
+  return memoryProfile;
+}
+
+function setMemoryProfile(profile: UserProfile): void {
+  memoryProfile = profile;
+}
+
+function getMemoryRuns(): RunLog[] {
+  if (!memoryRuns) {
+    memoryRuns = DEFAULT_RUNS.map((r) => ({ ...r }));
+  }
+  return memoryRuns;
+}
+
+function setMemoryRuns(runs: RunLog[]): void {
+  memoryRuns = runs;
+}
+
+// ========== 文件系统存储 ==========
+
 /** 初始化存储文件 */
-function initStorage(): void {
+function initFileStorage(): void {
   if (!existsSync(PROFILE_PATH)) {
-    saveProfile(DEFAULT_PROFILE);
+    saveJson(PROFILE_PATH, DEFAULT_PROFILE);
   }
   if (!existsSync(RUNS_PATH)) {
-    saveRuns(DEFAULT_RUNS);
+    saveJson(RUNS_PATH, DEFAULT_RUNS);
   }
 }
 
@@ -60,25 +91,48 @@ function saveJson<T>(path: string, data: T): void {
   writeFileSync(path, JSON.stringify(data, null, 2), "utf-8");
 }
 
+// ========== 统一接口 ==========
+
 /** 加载用户画像 */
 export function loadProfile(): UserProfile {
-  initStorage();
+  if (IS_VERCEL) {
+    return getMemoryProfile();
+  }
+  initFileStorage();
   return loadJson<UserProfile>(PROFILE_PATH);
 }
 
 /** 保存用户画像 */
 export function saveProfile(profile: UserProfile): void {
+  if (IS_VERCEL) {
+    setMemoryProfile(profile);
+    return;
+  }
   saveJson(PROFILE_PATH, profile);
+}
+
+/** 更新用户画像（部分更新） */
+export function updateProfile(updates: Partial<UserProfile>): void {
+  const profile = loadProfile();
+  Object.assign(profile, updates);
+  saveProfile(profile);
 }
 
 /** 加载最近训练记录 */
 export function loadRuns(): RunLog[] {
-  initStorage();
+  if (IS_VERCEL) {
+    return getMemoryRuns();
+  }
+  initFileStorage();
   return loadJson<RunLog[]>(RUNS_PATH);
 }
 
 /** 保存训练记录 */
 export function saveRuns(runs: RunLog[]): void {
+  if (IS_VERCEL) {
+    setMemoryRuns(runs);
+    return;
+  }
   saveJson(RUNS_PATH, runs);
 }
 

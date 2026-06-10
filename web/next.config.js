@@ -1,19 +1,14 @@
 /** @type {import('next').NextConfig} */
-const path = require('path');
-
 const nextConfig = {
   experimental: {
     esmExternals: 'loose',
-    externalDir: true,
   },
   webpack: (config) => {
-    // 添加 src 别名映射到上层目录
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      'src': path.resolve(__dirname, '../src'),
+    // 让 .js 扩展名能解析到 .ts / .tsx 文件（TypeScript ESM 兼容）
+    config.resolve.extensionAlias = {
+      ...config.resolve.extensionAlias,
+      '.js': ['.ts', '.tsx', '.js'],
     };
-    // 添加 .js 扩展名解析
-    config.resolve.extensions.push('.js');
     return config;
   },
 };

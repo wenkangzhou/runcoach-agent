@@ -5,20 +5,10 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { join } from "path";
-
-// 使用 new Function 绕过 webpack 静态分析，动态加载 .ts 文件
-async function loadMemoryStore() {
-  const storePath = join(process.cwd(), "src", "memory", "store.ts");
-  // eslint-disable-next-line no-new-func
-  const fn = new Function("path", "return import(path)");
-  const { loadMemory, addRun } = await fn(storePath);
-  return { loadMemory, addRun };
-}
+import { loadMemory, addRun } from "@/lib/memory/store";
 
 export async function GET() {
   try {
-    const { loadMemory } = await loadMemoryStore();
     const memory = loadMemory();
     return NextResponse.json({
       success: true,
@@ -44,7 +34,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { addRun } = await loadMemoryStore();
     const run = {
       date: new Date().toISOString().split("T")[0],
       distance: Number(distance),
