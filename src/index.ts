@@ -2,25 +2,37 @@
  * RunCoach Agent - CLI 入口
  * 
  * 使用方式:
- *   npm install
- *   npm run dev
- * 
- * 或带参数直接提问:
- *   npm run dev -- "上海明天适合跑步吗？"
+ *   npm run dev              # 默认问题，Agent Loop 模式
+ *   npm run dev -- "问题"     # 指定问题
+ *   MODE=workflow npm run dev -- "问题"  # Workflow 编排模式
  */
 
 import { runAgent } from "./core/agent.js";
+import { runWorkflowAgent } from "./workflow-agent.js";
 
 async function main() {
-  // 从命令行参数获取问题，或使用默认问题
-  const userQuestion = process.argv[2] || "我今天跑了 8km，配速 5:40，心率 145，感觉有点累，明天该怎么跑？";
+  // 解析参数
+  const args = process.argv.slice(2);
+  const mode = process.env.MODE || "agent"; // "agent" | "workflow"
+  const userQuestion = args[0] || "我今天跑了 8km，配速 5:40，心率 145，感觉有点累，明天该怎么跑？";
 
   console.log("=".repeat(50));
-  console.log("🏃 RunCoach Agent v0.1 - 最小 Agent Loop");
+  if (mode === "workflow") {
+    console.log("🏃 RunCoach Agent v0.2 - Workflow 编排模式");
+  } else {
+    console.log("🏃 RunCoach Agent v0.1 - Agent Loop 模式");
+  }
   console.log("=".repeat(50));
 
   try {
-    const { answer, toolCalls, iterations, memoryUpdate } = await runAgent(userQuestion);
+    let result;
+    if (mode === "workflow") {
+      result = await runWorkflowAgent(userQuestion);
+    } else {
+      result = await runAgent(userQuestion);
+    }
+
+    const { answer, toolCalls, iterations, memoryUpdate } = result;
 
     console.log("\n" + "=".repeat(50));
     console.log("📤 最终回答:");
@@ -28,6 +40,10 @@ async function main() {
     console.log("=".repeat(50));
     console.log(`🔧 工具调用次数: ${toolCalls.length}`);
     console.log(`🔄 总迭代次数: ${iterations}`);
+
+    if ("nodeHistory" in result) {
+      console.log(`📍 节点路径: ${result.nodeHistory.join(" → ")}`);
+    }
 
     if (memoryUpdate) {
       console.log("\n🧠 Memory 更新:");
