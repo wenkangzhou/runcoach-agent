@@ -176,6 +176,21 @@ async function callMockLLM(
     }
   }
 
+  // Day 5: RAG 知识库检索
+  const knowledgeKeywords = ["补给", "胶", "水", "吃", "喝", "早餐", "心率", "区间", "zone", "强度", "有氧", "无氧", "阈值", "伤病", "痛", "伤", "恢复", "拉伸", "膝盖", "小腿", "足底", "跟腱", "预防", "治疗", "医生", "休息"];
+  const hasKnowledgeKeyword = knowledgeKeywords.some(k => text.includes(k));
+  const hasRagResult = messages.some(m => m.role === "tool" && m.toolResult?.tool === "retrieveKnowledge");
+
+  if (hasKnowledgeKeyword && !hasRagResult) {
+    return {
+      type: "tool",
+      toolCall: {
+        tool: "retrieveKnowledge",
+        args: { query: originalText },
+      },
+    };
+  }
+
   if (text.includes("跑") || text.includes("训练") || text.includes("配速") || text.includes("明天") || text.includes("建议")) {
     // 如果用户输入包含具体数据，先调用 parseRunLog 提取
     const hasRunData = /\d+\s*(km|公里)/.test(originalText) && (text.includes("配速") || text.includes("跑了"));

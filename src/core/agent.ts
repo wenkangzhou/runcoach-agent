@@ -25,12 +25,19 @@ import { getToolDescriptions, executeTool } from "../tools/registry.js";
 import { loadMemory, formatMemoryForContext, addRun } from "../memory/store.js";
 import { buildMemoryContext } from "../memory/retrieval.js";
 import { autoUpdateProfile } from "../memory/update.js";
-import type { RunLog } from "../core/types.js";
+import { retrieveDocuments, formatRetrievalContext, shouldRetrieve } from "../rag/retriever.js";
 
 /** 创建初始上下文 */
 export function createContext(userInput: string): AgentContext {
   // Day 4: 按需检索记忆，而非全量加载
   const memoryContext = buildMemoryContext(userInput);
+
+  // Day 5: RAG 知识库检索
+  let knowledgeContext = "";
+  if (shouldRetrieve(userInput)) {
+    const ragResults = retrieveDocuments(userInput, 3);
+    knowledgeContext = formatRetrievalContext(ragResults);
+  }
 
   const systemMessage: Message = {
     role: "system",
@@ -38,12 +45,15 @@ export function createContext(userInput: string): AgentContext {
 
 ${memoryContext}
 
+${knowledgeContext}
+
 你的职责：
 1. 根据用户的训练记录和状态给出建议
 2. 必要时调用工具获取信息（天气、计算等）
 3. 优先考虑用户安全和长期目标
 4. 如果用户有伤病信号，建议休息或就医
-5. 如果用户提到新的个人信息（目标、时间、伤病），记住并在后续建议中考虑`,
+5. 如果用户提到新的个人信息（目标、时间、伤病），记住并在后续建议中考虑
+6. 回答知识库相关问题时，基于检索到的文档内容回答，不要编造`,
   };
 
   const userMessage: Message = {

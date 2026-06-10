@@ -8,6 +8,7 @@ import { getWeatherTool } from "./weather.js";
 import { calculateTool, parseRunLogTool } from "./training.js";
 
 import { suggestNextWorkoutTool } from "./coach.js";
+import { retrieveKnowledgeTool } from "./rag.js";
 
 /** 所有可用工具 */
 export const tools: RegisteredTool[] = [
@@ -15,6 +16,7 @@ export const tools: RegisteredTool[] = [
   calculateTool,
   parseRunLogTool,
   suggestNextWorkoutTool,
+  retrieveKnowledgeTool,
 ];
 
 /** 获取工具描述列表（给 LLM 看） */
