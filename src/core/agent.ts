@@ -21,7 +21,7 @@ import type {
   ToolResult,
 } from "./types.js";
 import { decideNextAction } from "./llm.js";
-import { getToolDescriptions, executeTool } from "../tools/registry.js";
+import { getToolDescriptions, executeTool, initMCPTools } from "../tools/registry.js";
 import { loadMemory, formatMemoryForContext, addRun } from "../memory/store.js";
 import { buildMemoryContext } from "../memory/retrieval.js";
 import { autoUpdateProfile } from "../memory/update.js";
@@ -76,6 +76,9 @@ export async function runAgent(userInput: string): Promise<{
   iterations: number;
   memoryUpdate?: string;
 }> {
+  // Day 8: 初始化 MCP 工具
+  await initMCPTools();
+
   const context = createContext(userInput);
   const toolCalls: ToolResult[] = [];
   const tools = getToolDescriptions();

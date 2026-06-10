@@ -230,6 +230,30 @@ async function callMockLLM(
       };
     }
 
+    // Day 8: MCP 工具触发 - 查询历史记录
+    const hasMCPRunsResult = messages.some(m => m.role === "tool" && m.toolResult?.tool === "mcp_get_recent_runs");
+    if (!hasMCPRunsResult && (text.includes("历史") || text.includes("记录") || text.includes("最近跑") || text.includes("周跑量"))) {
+      return {
+        type: "tool",
+        toolCall: {
+          tool: "mcp_get_recent_runs",
+          args: { limit: 5, days: 30 },
+        },
+      };
+    }
+
+    // Day 8: MCP 工具触发 - 查询用户画像
+    const hasMCPProfileResult = messages.some(m => m.role === "tool" && m.toolResult?.tool === "mcp_get_training_profile");
+    if (!hasMCPProfileResult && (text.includes("目标") || text.includes("profile") || text.includes("画像"))) {
+      return {
+        type: "tool",
+        toolCall: {
+          tool: "mcp_get_training_profile",
+          args: {},
+        },
+      };
+    }
+
     return {
       type: "answer",
       content:

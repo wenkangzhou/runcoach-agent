@@ -7,13 +7,21 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/index.ts",
+    "mcp": "tsx src/mcp-demo.ts",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit"
   },
-  "keywords": ["agent", "llm", "running", "coach", "mcp"],
+  "keywords": [
+    "agent",
+    "llm",
+    "running",
+    "coach",
+    "mcp"
+  ],
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "openai": "^4.85.0"
   },
   "devDependencies": {
