@@ -1,6 +1,6 @@
-# 🏃 RunCoach Agent v0.1
+# 🏃 RunCoach Agent v1.0
 
-《学习 Agent，10 天从入门到精通》的实战项目骨架。
+《学习 Agent，10 天从入门到精通》完整实战项目。
 
 > **Agent = LLM + 工具 + 状态 + 决策循环 + 约束 + 评估**
 
@@ -9,22 +9,50 @@
 ```
 runcoach-agent/
 ├── src/
-│   ├── core/
-│   │   ├── types.ts         # 核心类型定义 (Agent/Tool/Memory)
-│   │   ├── llm.ts           # LLM 调用封装 (真实 API + 模拟模式)
-│   │   └── agent.ts         # ⭐ Agent 核心循环
-│   ├── tools/
-│   │   ├── registry.ts      # 工具注册表
-│   │   ├── weather.ts       # 天气工具 (getWeather)
-│   │   └── training.ts      # 训练工具 (calculate, parseRunLog)
-│   ├── memory/
-│   │   └── store.ts         # 本地 JSON 记忆存储
-│   └── index.ts             # CLI 入口
-├── data/
-│   ├── profile.json         # 用户画像
-│   └── recent_runs.json     # 最近训练记录
-├── package.json
-└── tsconfig.json
+│   ├── core/                    # Agent 核心
+│   │   ├── types.ts             # 核心类型定义
+│   │   ├── llm.ts               # LLM 封装 (OpenAI API + 模拟模式)
+│   │   └── agent.ts             # Agent Loop 主循环
+│   ├── tools/                   # 工具层
+│   │   ├── registry.ts          # 工具注册表 (本地 + MCP)
+│   │   ├── weather.ts           # 天气工具
+│   │   ├── training.ts          # 训练工具 (calculate, parseRunLog)
+│   │   ├── coach.ts             # 训练建议工具
+│   │   ├── rag.ts               # 知识库检索工具
+│   │   └── mcp-tools.ts         # MCP 工具封装
+│   ├── memory/                  # 记忆系统
+│   │   ├── store.ts             # JSON 存储 (profile + runs)
+│   │   ├── summary.ts           # 周/月训练摘要
+│   │   ├── retrieval.ts         # 按需检索
+│   │   └── update.ts            # 自动更新 profile
+│   ├── rag/                     # RAG 知识库
+│   │   └── retriever.ts         # 关键词检索引擎
+│   ├── workflow/                # Workflow 编排
+│   │   ├── types.ts             # WorkflowState
+│   │   ├── engine.ts            # 状态机引擎
+│   │   └── nodes.ts             # 7 个节点实现
+│   ├── multi-agent/             # Multi-Agent 协作
+│   │   ├── types.ts             # AgentMessage
+│   │   ├── agents.ts            # 4 个角色实现
+│   │   └── orchestrator.ts      # 编排器 + 轮次调度
+│   ├── mcp/                     # MCP 协议
+│   │   ├── server.ts            # MCP Server (5 个工具)
+│   │   └── client.ts            # MCP Client (stdio/direct)
+│   ├── eval/                    # 评测系统
+│   │   ├── cases.ts             # 20 条测试用例
+│   │   └── runner.ts            # 评测运行器
+│   ├── index.ts                 # 主 CLI (三模式)
+│   ├── workflow-agent.ts        # Workflow 入口
+│   ├── mcp-demo.ts              # MCP 演示
+│   └── eval-cli.ts              # 评测 CLI
+├── docs/                        # 知识库
+│   ├── running-zones.md
+│   ├── marathon-fueling.md
+│   └── injury-prevention.md
+├── data/                        # 用户数据
+│   ├── profile.json
+│   └── recent_runs.json
+└── package.json
 ```
 
 ## 快速开始
@@ -33,76 +61,156 @@ runcoach-agent/
 cd runcoach-agent
 npm install
 
-# 方式 1: 使用模拟 LLM (无需 API Key，测试结构)
-npm run dev
-
-# 方式 2: 配置真实 API
-# cp .env.example .env
+# 配置真实 LLM (可选，模拟模式也能跑)
+cp .env.example .env
 # 编辑 .env 填入 OPENAI_API_KEY
-# npm run dev
-
-# 方式 3: 直接提问
-npm run dev -- "上海明天适合跑步吗？"
-npm run dev -- "帮我计算 5:40 配速跑 10km 需要多少分钟"
 ```
 
-## 10 天路线图与当前进度
+## 四种运行模式
 
-| 天数 | 主题 | 状态 | 文件 |
-|------|------|------|------|
-| Day 1 | Agent 基本概念 + 最小 Loop | ✅ | `src/core/agent.ts` |
-| Day 2 | Tool Calling | ✅ | `src/tools/*.ts` |
-| Day 3 | 单 Agent 实战 (跑步助手) | 🔄 | 基于现有结构扩展 |
-| Day 4 | Memory | ✅ 基础版 | `src/memory/store.ts` |
-| Day 5 | RAG | ⏳ | 待添加 `src/rag/` |
-| Day 6 | Workflow | ⏳ | 待添加节点编排 |
-| Day 7 | Multi-Agent | ⏳ | 待拆分角色 |
-| Day 8 | MCP | ⏳ | 待接入 MCP Server |
-| Day 9 | Eval | ⏳ | 待添加测试用例 |
-| Day 10 | 项目整合 | ⏳ | v0.1 完整版 |
+### 1. Agent Loop 模式 (v0.1)
 
-## Agent Loop 流程图
+```bash
+npm run dev -- "今天跑了 8km，配速 5:40，心率 145，感觉有点累，明天该怎么跑？"
+```
+
+### 2. Workflow 编排模式 (v0.2)
+
+```bash
+MODE=workflow npm run dev -- "今天跑了 8km，明天怎么跑？"
+```
+
+节点路径：`InputNode → ParseRunNode → RiskCheckNode → PlanNode → ReviewNode → OutputNode`
+
+### 3. Multi-Agent 协作模式 (v0.3)
+
+```bash
+MODE=multi npm run dev -- "今天跑了 8km，明天怎么跑？"
+```
+
+协作链：`ProductAgent → TrainingAgent → RiskAgent → ExpressionAgent`
+
+### 4. MCP 演示
+
+```bash
+npm run mcp
+```
+
+## 评测
+
+```bash
+# 评测 Agent Loop 模式
+npm run eval
+
+# 评测 Workflow 模式
+MODE=workflow npm run eval
+
+# 评测 Multi-Agent 模式
+MODE=multi npm run eval
+```
+
+## 10 天完整路线图
+
+| 天数 | 主题 | 核心产出 | 文件 |
+|------|------|---------|------|
+| Day 1 | Agent 基本概念 | 心智模型 + 伪代码 | `src/core/types.ts` |
+| Day 2 | Tool Calling | 3 个基础工具 | `src/tools/*.ts` |
+| Day 3 | 单 Agent 实战 | suggestNextWorkout | `src/tools/coach.ts` |
+| Day 4 | Memory | 自动更新 + 摘要 + 检索 | `src/memory/*.ts` |
+| Day 5 | RAG | 知识库 + 关键词检索 | `src/rag/`, `docs/` |
+| Day 6 | Workflow | 7 节点状态机 | `src/workflow/*.ts` |
+| Day 7 | Multi-Agent | 4 角色协作 | `src/multi-agent/*.ts` |
+| Day 8 | MCP | Server/Client + 5 工具 | `src/mcp/*.ts` |
+| Day 9 | Eval | 20 条测试用例 | `src/eval/*.ts` |
+| Day 10 | 项目整合 | 完整闭环 v1.0 | 全部 |
+
+## 核心架构
+
+### Agent Loop
 
 ```
 用户输入
   ↓
-创建上下文 (加载 Memory)
+创建上下文 (Memory + RAG)
   ↓
-LLM 判断意图 (decideNextAction)
+LLM 判断意图 → 选择工具
   ↓
-是否需要工具？
-  ├─ 是 → 调用工具 → 观察结果 → 继续推理
-  └─ 否 → 直接回答 / 澄清问题
+调用工具 → 观察结果 → 继续推理
   ↓
-返回最终回答
+返回最终回答 + 保存记录
 ```
 
-## 核心代码片段
+### Workflow 编排
 
-**Agent 循环** (`src/core/agent.ts`):
+```
+InputNode → ParseRunNode → RiskCheckNode
+                              ↓
+                    高风险 → OutputNode (警告)
+                    中/低 → PlanNode → ReviewNode
+                                      ↓
+                                不通过 → 回退修正
+                                通过 → OutputNode
+```
 
-```typescript
-while (context.iteration < context.maxIterations) {
-  const action = await decideNextAction(context.messages, tools);
-  
-  if (action.type === "tool") {
-    const result = await executeTool(action.toolCall.tool, action.toolCall.args);
-    context.messages.push({ role: "tool", content: JSON.stringify(result) });
-  } else if (action.type === "answer") {
-    return action.content;
-  }
-}
+### Multi-Agent 协作
+
+```
+ProductAgent (提取诉求)
+  ↓
+TrainingAgent (生成方案)
+  ↓
+RiskAgent (审查风险)
+  ↓
+  ├─ 通过 → ExpressionAgent (输出)
+  └─ 反对 → TrainingAgent (修正) → RiskAgent (再审)
+```
+
+### MCP 连接
+
+```
+Agent → MCP Client → MCP Server → 本地跑步数据
+       (stdio/direct)   (JSON-RPC)    (JSON 文件)
 ```
 
 ## 技术栈
 
-- **Runtime**: Node.js + TypeScript (ESM)
+- **Runtime**: Node.js 20+ + TypeScript (ESM)
 - **LLM**: OpenAI API (gpt-4o-mini) / 模拟模式
-- **Memory**: 本地 JSON (后续可换 SQLite/向量库)
-- **工具**: 自研 Tool Registry (后续可接 MCP)
+- **Memory**: 本地 JSON (预留 SQLite/向量库接口)
+- **RAG**: 关键词 BM25-like 检索 (预留向量库接口)
+- **Workflow**: 自研状态机引擎
+- **Multi-Agent**: 轮次调度编排器
+- **MCP**: @modelcontextprotocol/sdk
+- **Eval**: 关键词 + 工具调用检查
 
-## 下一步
+## 验收标准
 
-1. **接入真实 LLM**: 配置 `OPENAI_API_KEY` 测试真实工具选择能力
-2. **扩展工具**: 添加 `suggestNextWorkout`、`checkInjuryRisk` 等训练专用工具
-3. **Day 3 目标**: 让 Agent 能根据用户输入的跑步数据，给出真正的训练建议
+问 Agent：
+
+```
+我昨天跑了 12km，今天小腿有点紧，但我这周只跑了 20km，
+明天想跑快一点，可以吗？
+```
+
+它应该能回答：
+
+```
+不建议直接跑快。
+原因是你已经出现小腿紧，虽然周跑量不高，但局部疲劳优先级更高。
+建议明天 30-40 分钟轻松跑，心率控制在 Z1-Z2。
+如果跑 10 分钟后小腿仍紧，改为快走或休息。
+后天如果恢复，再安排 20 分钟节奏跑。
+```
+
+## 后续扩展方向
+
+1. **接入真实 LLM**: 配置 `OPENAI_API_KEY`，预期评测通过率 80%+
+2. **向量数据库**: 替换 RAG 为 Chroma/Pinecone
+3. **持久化存储**: 替换 JSON 为 SQLite/PostgreSQL
+4. **Web 界面**: Next.js + API 路由
+5. **更多 MCP Server**: 连接 Strava、Garmin、Notion
+6. **Eval 增强**: 添加语义相似度评分 (embedding-based)
+
+## License
+
+MIT
