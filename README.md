@@ -61,10 +61,31 @@ runcoach-agent/
 cd runcoach-agent
 npm install
 
-# 配置真实 LLM (可选，模拟模式也能跑)
+# 配置 LLM（二选一）
 cp .env.example .env
-# 编辑 .env 填入 OPENAI_API_KEY
+
+# 方式 A: Kimi（推荐，国内稳定）
+# 编辑 .env，填入 KIMI_API_KEY=sk-your-key
+# 获取地址: https://platform.moonshot.cn
+
+# 方式 B: OpenAI
+# 编辑 .env，填入 OPENAI_API_KEY=sk-your-key
+
+# 运行
+npm run dev -- "今天跑了 8km，明天怎么跑？"
 ```
+
+### 环境变量说明
+
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
+| `LLM_PROVIDER` | 选择 provider: `kimi` / `openai` | 自动检测 |
+| `KIMI_API_KEY` | Kimi API Key | - |
+| `KIMI_MODEL` | Kimi 模型 | `moonshot-v1-8k` |
+| `OPENAI_API_KEY` | OpenAI API Key | - |
+| `OPENAI_MODEL` | OpenAI 模型 | `gpt-4o-mini` |
+
+**优先级**: 配置了 `KIMI_API_KEY` 自动用 Kimi；配置了 `OPENAI_API_KEY` 自动用 OpenAI；都没有则回退模拟模式。
 
 ## 四种运行模式
 
@@ -175,7 +196,7 @@ Agent → MCP Client → MCP Server → 本地跑步数据
 ## 技术栈
 
 - **Runtime**: Node.js 20+ + TypeScript (ESM)
-- **LLM**: OpenAI API (gpt-4o-mini) / 模拟模式
+- **LLM**: Kimi (Moonshot AI) / OpenAI API / 模拟模式
 - **Memory**: 本地 JSON (预留 SQLite/向量库接口)
 - **RAG**: 关键词 BM25-like 检索 (预留向量库接口)
 - **Workflow**: 自研状态机引擎

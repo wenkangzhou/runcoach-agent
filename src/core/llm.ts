@@ -1,23 +1,69 @@
 /**
  * LLM 调用封装
- * 支持真实 OpenAI API 和本地模拟模式（用于测试和离线开发）
+ * 支持 Kimi (Moonshot AI)、OpenAI API 和本地模拟模式
  */
 
 import type { Message, NextAction, ToolDescription } from "./types.js";
 
-// 尝试加载真实 OpenAI 客户端
-let openai: any = null;
-try {
-  const { OpenAI } = await import("openai");
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (apiKey && apiKey.startsWith("sk-")) {
-    openai = new OpenAI({
-      apiKey,
-      baseURL: process.env.OPENAI_BASE_URL,
-    });
+// ==========================================
+// LLM Provider 配置
+// ==========================================
+
+/** 当前使用的 LLM Provider */
+export type LLMProvider = "kimi" | "openai" | "mock";
+
+/** 获取当前 Provider */
+function getProvider(): LLMProvider {
+  const envProvider = process.env.LLM_PROVIDER?.toLowerCase();
+  if (envProvider === "openai" && process.env.OPENAI_API_KEY) return "openai";
+  if (envProvider === "kimi" && process.env.KIMI_API_KEY) return "kimi";
+  // 自动检测：有 KIMI_KEY 用 Kimi，有 OPENAI_KEY 用 OpenAI，都没有用 mock
+  if (process.env.KIMI_API_KEY) return "kimi";
+  if (process.env.OPENAI_API_KEY) return "openai";
+  return "mock";
+}
+
+/** OpenAI SDK 客户端（懒加载） */
+let openaiClient: any = null;
+
+/** 初始化 LLM 客户端 */
+async function initLLMClient(): Promise<void> {
+  if (openaiClient) return;
+
+  const provider = getProvider();
+  if (provider === "mock") return;
+
+  try {
+    const { OpenAI } = await import("openai");
+
+    if (provider === "kimi") {
+      openaiClient = new OpenAI({
+        apiKey: process.env.KIMI_API_KEY,
+        baseURL: "https://api.moonshot.cn/v1",
+      });
+      console.log("🤖 LLM Provider: Kimi (Moonshot AI)");
+    } else if (provider === "openai") {
+      openaiClient = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+        baseURL: process.env.OPENAI_BASE_URL,
+      });
+      console.log("🤖 LLM Provider: OpenAI");
+    }
+  } catch (err) {
+    console.warn("⚠️ 无法加载 OpenAI SDK，回退到模拟模式:", err instanceof Error ? err.message : String(err));
   }
-} catch {
-  // openai 包未安装或加载失败
+}
+
+/** 获取当前模型名 */
+function getModel(): string {
+  const provider = getProvider();
+  if (provider === "kimi") {
+    return process.env.KIMI_MODEL || "moonshot-v1-8k";
+  }
+  if (provider === "openai") {
+    return process.env.OPENAI_MODEL || "gpt-4o-mini";
+  }
+  return "mock";
 }
 
 /** 构建给 LLM 的系统提示 */
@@ -56,53 +102,67 @@ export async function decideNextAction(
   messages: Message[],
   tools: ToolDescription[]
 ): Promise<NextAction> {
+  // 初始化客户端（只执行一次）
+  await initLLMClient();
+
+  const provider = getProvider();
+
   // 如果有真实 API，优先使用
-  if (openai) {
+  if (provider !== "mock" && openaiClient) {
     return callRealLLM(messages, tools);
   }
 
-  // 否则使用模拟 LLM（用于 Day 1-2 快速验证结构）
+  // 否则使用模拟 LLM（用于离线开发和快速验证）
   return callMockLLM(messages, tools);
 }
 
-/** 真实 OpenAI API 调用 */
+/** 真实 LLM API 调用（Kimi / OpenAI 兼容） */
 async function callRealLLM(
   messages: Message[],
   tools: ToolDescription[]
 ): Promise<NextAction> {
-  const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
+  const model = getModel();
+  const provider = getProvider();
 
-  const completion = await openai.chat.completions.create({
-    model,
-    temperature: 0.3,
-    messages: [
-      { role: "system", content: buildSystemPrompt(tools) },
-      ...messages.map((m) => ({
-        role: m.role,
-        content: m.content,
-      })),
-    ],
-  });
-
-  const raw = completion.choices[0].message.content || "";
-
-  // 尝试解析 JSON
   try {
-    const parsed = JSON.parse(raw);
-    if (parsed.type === "tool" && parsed.toolCall) {
-      return { type: "tool", toolCall: parsed.toolCall };
-    }
-    if (parsed.type === "answer") {
-      return { type: "answer", content: parsed.content };
-    }
-    if (parsed.type === "clarify") {
-      return { type: "clarify", question: parsed.question };
-    }
-  } catch {
-    // 不是 JSON，当作直接回答
-  }
+    const completion = await openaiClient.chat.completions.create({
+      model,
+      temperature: 0.3,
+      messages: [
+        { role: "system", content: buildSystemPrompt(tools) },
+        ...messages.map((m) => ({
+          role: m.role,
+          content: m.content,
+        })),
+      ],
+    });
 
-  return { type: "answer", content: raw };
+    const raw = completion.choices[0].message.content || "";
+
+    // 尝试解析 JSON
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed.type === "tool" && parsed.toolCall) {
+        return { type: "tool", toolCall: parsed.toolCall };
+      }
+      if (parsed.type === "answer") {
+        return { type: "answer", content: parsed.content };
+      }
+      if (parsed.type === "clarify") {
+        return { type: "clarify", question: parsed.question };
+      }
+    } catch {
+      // 不是 JSON，当作直接回答
+    }
+
+    return { type: "answer", content: raw };
+  } catch (err) {
+    const error = err instanceof Error ? err.message : String(err);
+    console.error(`❌ ${provider} API 调用失败:`, error);
+    // API 失败时回退到模拟模式
+    console.log("🔄 回退到模拟 LLM...");
+    return callMockLLM(messages, tools);
+  }
 }
 
 /** 模拟 LLM（基于关键词的简单规则） */
@@ -263,6 +323,13 @@ async function callMockLLM(
 
   return {
     type: "answer",
-    content: `【模拟模式】我理解了你的问题："${lastUserMessage.content}"。当前运行的是模拟 LLM，无需 API Key。如需真实模型响应，请配置 OPENAI_API_KEY。`,
+    content: `【模拟模式】我理解了你的问题："${lastUserMessage.content}"。
+
+当前运行的是模拟 LLM，无需 API Key。
+
+如需接入真实模型：
+1. 复制 .env.example 为 .env
+2. 填入 KIMI_API_KEY（推荐）或 OPENAI_API_KEY
+3. 重新运行`,
   };
 }
