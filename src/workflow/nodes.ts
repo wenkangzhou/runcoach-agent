@@ -220,7 +220,7 @@ const reviewNode: WorkflowNode = {
       modifications.push("建议改为：休息或交叉训练");
     }
 
-    if (risk?.weeklyDistance > 60 && rec.distance.includes("10")) {
+    if (risk?.weeklyDistance && risk.weeklyDistance > 60 && rec.distance.includes("10")) {
       concerns.push("周跑量已超 60km，建议距离偏大");
       modifications.push("建议减至 5-8km 或休息");
     }
@@ -259,7 +259,7 @@ const ragNode: WorkflowNode = {
       return state;
     }
 
-    const results = retrieveDocuments(state.userInput, 3);
+    const results = await retrieveDocuments(state.userInput, 3);
     const context = formatRetrievalContext(results);
 
     // 把检索结果存入状态，供 OutputNode 使用

@@ -26,7 +26,7 @@ export const retrieveKnowledgeTool: RegisteredTool = {
       },
     ],
   },
-  execute: (args) => {
+  execute: async (args) => {
     const query = String(args.query || "");
     const topK = Number(args.topK || 3);
 
@@ -34,7 +34,7 @@ export const retrieveKnowledgeTool: RegisteredTool = {
       throw new Error("查询内容不能为空");
     }
 
-    const results = retrieveDocuments(query, topK);
+    const results = await retrieveDocuments(query, topK);
     const context = formatRetrievalContext(results);
 
     return {

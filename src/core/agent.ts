@@ -19,6 +19,7 @@ import type {
   Message,
   NextAction,
   ToolResult,
+  RunLog,
 } from "./types.js";
 import { decideNextAction } from "./llm.js";
 import { getToolDescriptions, executeTool, initMCPTools } from "../tools/registry.js";
@@ -26,16 +27,17 @@ import { loadMemory, formatMemoryForContext, addRun } from "../memory/store.js";
 import { buildMemoryContext } from "../memory/retrieval.js";
 import { autoUpdateProfile } from "../memory/update.js";
 import { retrieveDocuments, formatRetrievalContext, shouldRetrieve } from "../rag/retriever.js";
+import { initVectorStore } from "../rag/chroma-store.js";
 
 /** 创建初始上下文 */
-export function createContext(userInput: string): AgentContext {
+export async function createContext(userInput: string): Promise<AgentContext> {
   // Day 4: 按需检索记忆，而非全量加载
   const memoryContext = buildMemoryContext(userInput);
 
-  // Day 5: RAG 知识库检索
+  // Day 5: RAG 知识库检索（向量检索 + 关键词回退）
   let knowledgeContext = "";
   if (shouldRetrieve(userInput)) {
-    const ragResults = retrieveDocuments(userInput, 3);
+    const ragResults = await retrieveDocuments(userInput, 3);
     knowledgeContext = formatRetrievalContext(ragResults);
   }
 
@@ -79,7 +81,14 @@ export async function runAgent(userInput: string): Promise<{
   // Day 8: 初始化 MCP 工具
   await initMCPTools();
 
-  const context = createContext(userInput);
+  // Day 5: 初始化向量数据库
+  try {
+    await initVectorStore();
+  } catch (err) {
+    console.warn("⚠️ 向量数据库初始化失败，将使用关键词检索回退:", err instanceof Error ? err.message : String(err));
+  }
+
+  const context = await createContext(userInput);
   const toolCalls: ToolResult[] = [];
   const tools = getToolDescriptions();
 
@@ -141,6 +150,7 @@ export async function runAgent(userInput: string): Promise<{
           ? `错误: ${result.error}`
           : JSON.stringify(result.result),
         toolCallId: toolCall.id,
+        toolResult: result,
       });
     }
   }

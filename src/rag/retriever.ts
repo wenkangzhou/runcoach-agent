@@ -1,13 +1,13 @@
 /**
- * 简单 RAG 检索
+ * RAG 检索（向量检索 + 关键词回退）
  * Day 5: 让 Agent 能读知识库
- * 
- * 当前实现: 基于关键词的 BM25-like 检索
- * 后续可替换为向量数据库 (Chroma/Pinecone)
+ * 向量检索: Chroma + Kimi/OpenAI Embedding
+ * 回退: 关键词 BM25-like 检索
  */
 
 import { readFileSync, readdirSync } from "fs";
 import { join } from "path";
+import { queryVectorStore, initVectorStore } from "./chroma-store.js";
 
 const DOCS_DIR = join(process.cwd(), "docs");
 
@@ -112,8 +112,8 @@ function scoreQuery(query: string, chunk: DocumentChunk): number {
   return score / queryKeywords.length;
 }
 
-/** 检索相关文档 */
-export function retrieveDocuments(query: string, topK: number = 3): RetrievalResult[] {
+/** 关键词检索（回退方案） */
+function keywordRetrieve(query: string, topK: number = 3): RetrievalResult[] {
   const allChunks = loadDocuments();
   const scored = allChunks.map((chunk) => ({
     chunk,
@@ -125,6 +125,22 @@ export function retrieveDocuments(query: string, topK: number = 3): RetrievalRes
     .filter((r) => r.score > 0.5)
     .sort((a, b) => b.score - a.score)
     .slice(0, topK);
+}
+
+/** 检索相关文档（优先向量检索，失败回退关键词） */
+export async function retrieveDocuments(query: string, topK: number = 3): Promise<RetrievalResult[]> {
+  // 尝试向量检索
+  try {
+    const vectorResults = await queryVectorStore(query, topK);
+    if (vectorResults.length > 0) {
+      return vectorResults;
+    }
+  } catch (err) {
+    console.warn("⚠️ 向量检索失败，回退到关键词检索:", err instanceof Error ? err.message : String(err));
+  }
+
+  // 回退到关键词检索
+  return keywordRetrieve(query, topK);
 }
 
 /** 格式化检索结果为上下文文本 */
