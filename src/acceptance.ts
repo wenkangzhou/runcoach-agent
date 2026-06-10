@@ -4,6 +4,8 @@
  * Day 10: 验证 Agent 能完成核心任务
  */
 
+import "dotenv/config";
+
 import { runAgent } from "./core/agent.js";
 import { runWorkflowAgent } from "./workflow-agent.js";
 import { runMultiAgent } from "./multi-agent/orchestrator.js";

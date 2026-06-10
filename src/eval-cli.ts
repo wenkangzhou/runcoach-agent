@@ -8,6 +8,8 @@
  *   MODE=multi npm run eval     # Multi-Agent 模式
  */
 
+import "dotenv/config";
+
 import { testCases, getCategoryStats } from "./eval/cases.js";
 import { runAllTests } from "./eval/runner.js";
 

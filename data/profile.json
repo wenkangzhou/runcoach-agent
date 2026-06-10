@@ -1,5 +1,5 @@
 {
-  "goal": "全马 3:20-3:25",
+  "goal": "全马 3:20",
   "weeklyMileage": "150-200km/month",
   "availableTime": "weekday morning or late night",
   "issues": [
@@ -7,7 +7,11 @@
     "calf tightness",
     "heat sensitive",
     "膝盖 痛",
-    "小腿 紧"
+    "小腿 紧",
+    "腿 酸",
+    "扭伤 扭伤",
+    "膝盖痛",
+    "脚踝扭伤"
   ],
   "preferredPace": "5:30-5:40",
   "experience": "3 years"
