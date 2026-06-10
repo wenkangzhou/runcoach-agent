@@ -9,7 +9,7 @@ import { loadMemory, addRun } from "@/lib/memory/store";
 
 export async function GET() {
   try {
-    const memory = loadMemory();
+    const memory = await loadMemory();
     return NextResponse.json({
       success: true,
       runs: memory.recentRuns,
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
       notes: notes ? String(notes) : undefined,
     };
 
-    addRun(run);
+    await addRun(run);
 
     return NextResponse.json({
       success: true,

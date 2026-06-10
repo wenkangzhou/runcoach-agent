@@ -32,7 +32,7 @@ import { initVectorStore } from "../rag/chroma-store.js";
 /** 创建初始上下文 */
 export async function createContext(userInput: string): Promise<AgentContext> {
   // Day 4: 按需检索记忆，而非全量加载
-  const memoryContext = buildMemoryContext(userInput);
+  const memoryContext = await buildMemoryContext(userInput);
 
   // Day 5: RAG 知识库检索（向量检索 + 关键词回退）
   let knowledgeContext = "";
@@ -65,7 +65,7 @@ ${knowledgeContext}
 
   return {
     messages: [systemMessage, userMessage],
-    memory: loadMemory(),
+    memory: await loadMemory(),
     iteration: 0,
     maxIterations: 5,
   };
@@ -105,13 +105,13 @@ export async function runAgent(userInput: string): Promise<{
     console.log(`🧠 LLM 决策: ${action.type}`);
 
     if (action.type === "clarify") {
-      return finalize(userInput, `需要澄清: ${action.question}`, toolCalls, context.iteration);
+      return await finalize(userInput, `需要澄清: ${action.question}`, toolCalls, context.iteration);
     }
 
     if (action.type === "answer") {
       console.log(`✅ 直接回答`);
       const answer = formatAnswer(action.content, toolCalls);
-      return finalize(userInput, answer, toolCalls, context.iteration);
+      return await finalize(userInput, answer, toolCalls, context.iteration);
     }
 
     if (action.type === "tool") {
@@ -157,7 +157,7 @@ export async function runAgent(userInput: string): Promise<{
 
   // 达到最大迭代次数，强制返回
   console.log(`⚠️ 达到最大迭代次数`);
-  return finalize(userInput, "Agent 思考次数过多，请简化问题或稍后重试。", toolCalls, context.iteration);
+  return await finalize(userInput, "Agent 思考次数过多，请简化问题或稍后重试。", toolCalls, context.iteration);
 }
 
 /** 格式化最终回答 */
@@ -185,17 +185,17 @@ ${rec.warning ? `\n${rec.warning}\n` : ""}${suggestResult.goalHint || ""}`;
 }
 
 /** 收尾：保存记录 + 更新 profile */
-function finalize(
+async function finalize(
   userInput: string,
   answer: string,
   toolCalls: ToolResult[],
   iterations: number
-): {
+): Promise<{
   answer: string;
   toolCalls: ToolResult[];
   iterations: number;
   memoryUpdate: string;
-} {
+}> {
   let memoryUpdate = "";
 
   // 1. 如果 parseRunLog 成功，自动保存到 recent_runs
@@ -210,12 +210,12 @@ function finalize(
       feeling: String(extracted.feeling || "-"),
       notes: userInput.slice(0, 100),
     };
-    addRun(run);
+    await addRun(run);
     memoryUpdate += `\n📝 已保存训练记录: ${run.distance}km @ ${run.pace}`;
   }
 
   // 2. 自动更新 profile
-  const update = autoUpdateProfile(userInput);
+  const update = await autoUpdateProfile(userInput);
   if (update.hasUpdate) {
     memoryUpdate += `\n${update.message}`;
   }

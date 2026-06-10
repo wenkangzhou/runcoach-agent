@@ -34,7 +34,7 @@ export class ProductAgent extends BaseAgent {
 
   async execute(state: MultiAgentState): Promise<AgentMessage> {
     const text = state.userInput.toLowerCase();
-    const memory = loadMemory();
+    const memory = await loadMemory();
 
     // 提取诉求
     let intent = "general";
@@ -178,7 +178,7 @@ export class RiskAgent extends BaseAgent {
   async execute(state: MultiAgentState): Promise<AgentMessage> {
     const trainingMsg = state.messages.find((m) => m.role === "training" && m.type === "proposal");
     const rec = trainingMsg?.metadata?.recommendation as Record<string, string> | undefined;
-    const memory = loadMemory();
+    const memory = await loadMemory();
 
     const objections: string[] = [];
     const severity: ("low" | "medium" | "high")[] = [];

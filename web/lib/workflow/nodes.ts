@@ -86,7 +86,7 @@ const riskCheckNode: WorkflowNode = {
   name: "RiskCheckNode",
   description: "综合评估伤病风险和疲劳状态",
   execute: async (state) => {
-    const memory = loadMemory();
+    const memory = await loadMemory();
     const { profile, recentRuns } = memory;
 
     // 计算本周跑量
@@ -158,7 +158,7 @@ const planNode: WorkflowNode = {
   name: "PlanNode",
   description: "根据风险评估生成训练建议",
   execute: async (state) => {
-    const memory = loadMemory();
+    const memory = await loadMemory();
     const risk = state.riskAssessment;
     const parsed = state.parsedRun;
 

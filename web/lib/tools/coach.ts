@@ -26,12 +26,12 @@ export const suggestNextWorkoutTool: RegisteredTool = {
       },
     ],
   },
-  execute: (args) => {
+  execute: async (args) => {
     const todayRun = args.todayRun as Record<string, unknown> || {};
     const question = String(args.question || "");
 
     // 加载记忆
-    const memory = loadMemory();
+    const memory = await loadMemory();
     const { profile, recentRuns } = memory;
 
     // 提取今日数据

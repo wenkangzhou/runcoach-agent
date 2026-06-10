@@ -48,12 +48,12 @@ export async function runWorkflowAgent(userInput: string): Promise<{
       feeling: finalState.parsedRun.feeling || "-",
       notes: userInput.slice(0, 100),
     };
-    addRun(run);
+    await addRun(run);
     memoryUpdate += `\n📝 已保存训练记录: ${run.distance}km @ ${run.pace}`;
   }
 
   // 自动更新 profile
-  const update = autoUpdateProfile(userInput);
+  const update = await autoUpdateProfile(userInput);
   if (update.hasUpdate) {
     memoryUpdate += `\n${update.message}`;
   }

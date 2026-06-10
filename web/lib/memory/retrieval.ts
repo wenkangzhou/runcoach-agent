@@ -92,15 +92,15 @@ export function getRetrievalConfig(type: QueryType): RetrievalConfig {
 }
 
 /** 检索记忆并格式化 */
-export function retrieveMemory(question: string): {
+export async function retrieveMemory(question: string): Promise<{
   profileText: string;
   runsText: string;
   summaryText: string;
   config: RetrievalConfig;
-} {
+}> {
   const queryType = classifyQuery(question);
   const config = getRetrievalConfig(queryType);
-  const memory = loadMemory();
+  const memory = await loadMemory();
 
   // 1. 用户画像
   const profileText = config.includeProfile
@@ -146,8 +146,8 @@ ${relevantRuns
 }
 
 /** 构建完整上下文文本 */
-export function buildMemoryContext(question: string): string {
-  const { profileText, runsText, summaryText } = retrieveMemory(question);
+export async function buildMemoryContext(question: string): Promise<string> {
+  const { profileText, runsText, summaryText } = await retrieveMemory(question);
 
   const sections = [profileText, summaryText, runsText].filter(Boolean);
   return sections.join("\n\n");

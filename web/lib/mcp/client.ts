@@ -75,17 +75,17 @@ export class RunningMCPClient {
       return result;
     } else {
       // direct 模式: 直接调用内存函数
-      return this.callDirect(name, args);
+      return await this.callDirect(name, args);
     }
   }
 
   /** 直接调用（内存模式） */
-  private callDirect(name: string, args: Record<string, unknown>): unknown {
+  private async callDirect(name: string, args: Record<string, unknown>): Promise<unknown> {
     switch (name) {
       case "get_recent_runs": {
         const limit = (args?.limit as number) || 10;
         const days = (args?.days as number) || 30;
-        const runs = loadRuns();
+        const runs = await loadRuns();
         const cutoff = new Date();
         cutoff.setDate(cutoff.getDate() - days);
         const filtered = runs
@@ -103,24 +103,24 @@ export class RunningMCPClient {
           feeling: String(args?.feeling || "-"),
           notes: (args?.notes as string) || "",
         };
-        const runs = loadRuns();
+        const runs = await loadRuns();
         runs.unshift(run);
         if (runs.length > 20) runs.length = 20;
-        saveRuns(runs);
+        await saveRuns(runs);
         return { success: true, added: run };
       }
 
       case "get_training_profile": {
-        return loadProfile();
+        return await loadProfile();
       }
 
       case "update_training_profile": {
         const field = String(args?.field || "");
         const value = String(args?.value || "");
-        const profile = loadProfile();
+        const profile = await loadProfile();
         if (field in profile) {
           (profile as any)[field] = value;
-          saveProfile(profile);
+          await saveProfile(profile);
           return { success: true, updated: { field, value } };
         }
         return { error: `字段 "${field}" 不存在` };
@@ -128,10 +128,10 @@ export class RunningMCPClient {
 
       case "add_injury_note": {
         const issue = String(args?.issue || "");
-        const profile = loadProfile();
+        const profile = await loadProfile();
         if (!profile.issues.includes(issue)) {
           profile.issues.push(issue);
-          saveProfile(profile);
+          await saveProfile(profile);
         }
         return { success: true, issues: profile.issues };
       }

@@ -140,7 +140,7 @@ export function createRunningMCPServer(): Server {
       case "get_recent_runs": {
         const limit = (args?.limit as number) || 10;
         const days = (args?.days as number) || 30;
-        const runs = loadRuns();
+        const runs = await loadRuns();
         const cutoff = new Date();
         cutoff.setDate(cutoff.getDate() - days);
         const filtered = runs
@@ -165,10 +165,10 @@ export function createRunningMCPServer(): Server {
           feeling: String(args?.feeling || "-"),
           notes: (args?.notes as string) || "",
         };
-        const runs = loadRuns();
+        const runs = await loadRuns();
         runs.unshift(run);
         if (runs.length > 20) runs.length = 20;
-        saveRuns(runs);
+        await saveRuns(runs);
         return {
           content: [
             {
@@ -180,7 +180,7 @@ export function createRunningMCPServer(): Server {
       }
 
       case "get_training_profile": {
-        const profile = loadProfile();
+        const profile = await loadProfile();
         return {
           content: [
             {
@@ -194,10 +194,10 @@ export function createRunningMCPServer(): Server {
       case "update_training_profile": {
         const field = String(args?.field || "");
         const value = String(args?.value || "");
-        const profile = loadProfile();
+        const profile = await loadProfile();
         if (field in profile) {
           (profile as any)[field] = value;
-          saveProfile(profile);
+          await saveProfile(profile);
           return {
             content: [
               {
@@ -220,10 +220,10 @@ export function createRunningMCPServer(): Server {
 
       case "add_injury_note": {
         const issue = String(args?.issue || "");
-        const profile = loadProfile();
+        const profile = await loadProfile();
         if (!profile.issues.includes(issue)) {
           profile.issues.push(issue);
-          saveProfile(profile);
+          await saveProfile(profile);
         }
         return {
           content: [

@@ -9,7 +9,7 @@ import { loadMemory, updateProfile } from "@/lib/memory/store";
 
 export async function GET() {
   try {
-    const memory = loadMemory();
+    const memory = await loadMemory();
     return NextResponse.json({
       success: true,
       profile: memory.profile,
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     if (preferredPace !== undefined) profile.preferredPace = preferredPace;
     if (experience !== undefined) profile.experience = experience;
 
-    updateProfile(profile);
+    await updateProfile(profile);
 
     return NextResponse.json({
       success: true,

@@ -23,9 +23,9 @@ export interface ProfileUpdate {
 }
 
 /** 从用户输入中提取 profile 更新 */
-export function extractProfileUpdates(userInput: string): ProfileUpdate[] {
+export async function extractProfileUpdates(userInput: string): Promise<ProfileUpdate[]> {
   const updates: ProfileUpdate[] = [];
-  const current = loadProfile();
+  const current = await loadProfile();
   const text = userInput.toLowerCase();
 
   // 1. 目标更新 - 严格匹配马拉松完赛时间（排除配速场景）
@@ -149,11 +149,11 @@ export function extractProfileUpdates(userInput: string): ProfileUpdate[] {
 }
 
 /** 应用更新到 profile */
-export function applyProfileUpdates(updates: ProfileUpdate[]): {
+export async function applyProfileUpdates(updates: ProfileUpdate[]): Promise<{
   applied: ProfileUpdate[];
   rejected: ProfileUpdate[];
-} {
-  const profile = loadProfile();
+}> {
+  const profile = await loadProfile();
   const applied: ProfileUpdate[] = [];
   const rejected: ProfileUpdate[] = [];
 
@@ -170,25 +170,25 @@ export function applyProfileUpdates(updates: ProfileUpdate[]): {
   }
 
   if (applied.length > 0) {
-    saveProfile(profile);
+    await saveProfile(profile);
   }
 
   return { applied, rejected };
 }
 
 /** 自动更新入口：分析用户输入并更新 */
-export function autoUpdateProfile(userInput: string): {
+export async function autoUpdateProfile(userInput: string): Promise<{
   hasUpdate: boolean;
   updates: ProfileUpdate[];
   message: string;
-} {
-  const updates = extractProfileUpdates(userInput);
+}> {
+  const updates = await extractProfileUpdates(userInput);
 
   if (updates.length === 0) {
     return { hasUpdate: false, updates: [], message: "" };
   }
 
-  const { applied, rejected } = applyProfileUpdates(updates);
+  const { applied, rejected } = await applyProfileUpdates(updates);
 
   const lines = applied.map(
     (u) => `  ✓ ${u.field}: ${JSON.stringify(u.oldValue)} → ${JSON.stringify(u.newValue)}`
