@@ -9,16 +9,19 @@
 
 import { runAgent } from "./core/agent.js";
 import { runWorkflowAgent } from "./workflow-agent.js";
+import { runMultiAgent } from "./multi-agent/orchestrator.js";
 
 async function main() {
   // 解析参数
   const args = process.argv.slice(2);
-  const mode = process.env.MODE || "agent"; // "agent" | "workflow"
+  const mode = process.env.MODE || "agent"; // "agent" | "workflow" | "multi"
   const userQuestion = args[0] || "我今天跑了 8km，配速 5:40，心率 145，感觉有点累，明天该怎么跑？";
 
   console.log("=".repeat(50));
   if (mode === "workflow") {
     console.log("🏃 RunCoach Agent v0.2 - Workflow 编排模式");
+  } else if (mode === "multi") {
+    console.log("🏃 RunCoach Agent v0.3 - Multi-Agent 协作模式");
   } else {
     console.log("🏃 RunCoach Agent v0.1 - Agent Loop 模式");
   }
@@ -28,6 +31,8 @@ async function main() {
     let result;
     if (mode === "workflow") {
       result = await runWorkflowAgent(userQuestion);
+    } else if (mode === "multi") {
+      result = await runMultiAgent(userQuestion);
     } else {
       result = await runAgent(userQuestion);
     }
@@ -43,6 +48,10 @@ async function main() {
 
     if ("nodeHistory" in result) {
       console.log(`📍 节点路径: ${result.nodeHistory.join(" → ")}`);
+    }
+
+    if ("agentHistory" in result) {
+      console.log(`🎭 Agent 协作链: ${result.agentHistory.join(" → ")}`);
     }
 
     if (memoryUpdate) {
