@@ -181,7 +181,7 @@ async function callRealLLM(
         tool_choice: "auto",
       }),
       new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("LLM API 调用超时 (30秒)")), 30000)
+        setTimeout(() => reject(new Error("LLM API 调用超时 (8秒)")), 8000)
       ),
     ]);
 

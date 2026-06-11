@@ -35,6 +35,7 @@ export default function Chat() {
     setInput("");
     setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
     setLoading(true);
+    console.log("[Chat] 发送消息:", userMessage);
 
     try {
       const res = await fetch("/api/chat", {
@@ -42,8 +43,10 @@ export default function Chat() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: userMessage }),
       });
+      console.log("[Chat] API 响应状态:", res.status);
 
       const data = await res.json();
+      console.log("[Chat] API 数据:", data);
 
       if (data.success) {
         setMessages((prev) => [
@@ -58,15 +61,17 @@ export default function Chat() {
       } else {
         setMessages((prev) => [
           ...prev,
-          { role: "assistant", content: `❌ 错误: ${data.error}` },
+          { role: "assistant", content: `❌ 错误: ${data.error || "未知错误"}` },
         ]);
       }
     } catch (err) {
+      console.error("[Chat] 请求失败:", err);
       setMessages((prev) => [
         ...prev,
         { role: "assistant", content: `❌ 网络错误: ${String(err)}` },
       ]);
     } finally {
+      console.log("[Chat] 请求结束，loading=false");
       setLoading(false);
     }
   };
