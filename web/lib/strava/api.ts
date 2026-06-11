@@ -9,10 +9,10 @@ const STRAVA_API_BASE = "https://www.strava.com/api/v3";
 
 /** 获取 Strava 环境变量 */
 function getEnv() {
-  const clientId = process.env.STRAVA_CLIENT_ID;
+  const clientId = process.env.STRAVA_CLIENT_ID || process.env.NEXT_PUBLIC_STRAVA_CLIENT_ID;
   const clientSecret = process.env.STRAVA_CLIENT_SECRET;
   if (!clientId || !clientSecret) {
-    throw new Error("STRAVA_CLIENT_ID 和 STRAVA_CLIENT_SECRET 未配置");
+    throw new Error("STRAVA_CLIENT_ID (或 NEXT_PUBLIC_STRAVA_CLIENT_ID) 和 STRAVA_CLIENT_SECRET 未配置");
   }
   return { clientId, clientSecret };
 }
