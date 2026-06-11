@@ -1,6 +1,7 @@
 import Chat from "../components/Chat";
 import ProfileCard from "../components/ProfileCard";
 import RunLogList from "../components/RunLogList";
+import StravaConnect from "../components/StravaConnect";
 
 export default function Home() {
   return (
@@ -24,6 +25,8 @@ export default function Home() {
       <div style={styles.main}>
         {/* 左侧边栏 */}
         <aside style={styles.sidebar}>
+          <StravaConnect />
+          <div style={styles.divider} />
           <ProfileCard />
           <div style={styles.divider} />
           <RunLogList />
