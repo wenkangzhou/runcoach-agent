@@ -40,7 +40,7 @@ async function initLLMClient(): Promise<void> {
       openaiClient = new OpenAI({
         apiKey: process.env.KIMI_API_KEY,
         baseURL: "https://api.moonshot.cn/v1",
-        maxRetries: 0, // 禁用自动重试，避免429时累积请求
+        maxRetries: 2, // SDK 自动处理 429 重试
         timeout: 30000,
       });
       console.log("🤖 LLM Provider: Kimi (Moonshot AI)");
@@ -48,7 +48,7 @@ async function initLLMClient(): Promise<void> {
       openaiClient = new OpenAI({
         apiKey: process.env.OPENAI_API_KEY,
         baseURL: process.env.OPENAI_BASE_URL,
-        maxRetries: 0,
+        maxRetries: 2,
         timeout: 30000,
       });
       console.log("🤖 LLM Provider: OpenAI");
@@ -119,106 +119,166 @@ export async function decideNextAction(
   return callMockLLM(messages, tools);
 }
 
-/** 真实 LLM API 调用（Kimi / OpenAI 兼容） */
+/** 真实 LLM API 调用（Kimi / OpenAI 兼容）
+ * 稳定性策略：
+ * 1. SDK 自动重试 2 次（指数退避）
+ * 2. 主模型失败后备用模型回退
+ * 3. 30 秒硬超时
+ * 4. 429 时等待 2s/4s 再重试
+ */
 async function callRealLLM(
   messages: Message[],
   tools: ToolDescription[]
 ): Promise<NextAction> {
-  const model = getModel();
   const provider = getProvider();
+  const primaryModel = getModel();
+  // Kimi 备用模型链
+  const fallbackModels = provider === "kimi"
+    ? [primaryModel, "moonshot-v1-32k", "moonshot-v1-8k"]
+    : [primaryModel];
 
-  try {
-    // 转换消息为 OpenAI API 格式
-    const apiMessages = messages.map((m) => {
-      if (m.role === "assistant" && m.toolCalls) {
-        return {
-          role: "assistant",
-          content: m.content || null,
-          tool_calls: m.toolCalls,
-        };
+  // 去重
+  const models = Array.from(new Set(fallbackModels));
+
+  for (let modelIndex = 0; modelIndex < models.length; modelIndex++) {
+    const model = models[modelIndex];
+    const isFallback = modelIndex > 0;
+
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        if (isFallback) {
+          console.log(`🔄 尝试备用模型: ${model} (第${attempt}次)`);
+        } else {
+          console.log(`🤖 调用 ${provider} API: ${model} (第${attempt}次)`);
+        }
+
+        const result = await callLLMOnce(messages, tools, model);
+        return result;
+      } catch (err) {
+        const error = err instanceof Error ? err.message : String(err);
+        const is429 = error.includes("429") || error.includes("overloaded") || error.includes("rate limit");
+        const isTimeout = error.includes("timeout") || error.includes("abort");
+
+        if (is429 && attempt < 3) {
+          const delay = attempt * 2000; // 2s, 4s
+          console.log(`⏳ ${provider} 429，等待 ${delay}ms 后重试...`);
+          await sleep(delay);
+          continue;
+        }
+
+        if (isTimeout && attempt < 3) {
+          console.log(`⏳ ${provider} 超时，立即重试...`);
+          continue;
+        }
+
+        // 当前模型所有尝试失败，尝试下一个备用模型
+        if (modelIndex < models.length - 1) {
+          console.log(`❌ ${model} 失败，切换到备用模型...`);
+          break; // 跳出内层循环，进入下一个模型
+        }
+
+        // 所有模型都失败
+        console.error(`❌ ${provider} 全部模型失败:`, error);
+        console.log("🔄 回退到模拟 LLM...");
+        return callMockLLM(messages, tools);
       }
-      if (m.role === "tool" && m.toolCallId) {
-        return {
-          role: "tool",
-          content: m.content,
-          tool_call_id: m.toolCallId,
-        };
-      }
-      return {
-        role: m.role,
-        content: m.content,
-      };
-    });
-
-    // 转换工具为 OpenAI functions 格式
-    const apiTools = tools.map((t) => ({
-      type: "function" as const,
-      function: {
-        name: t.name,
-        description: t.description,
-        parameters: {
-          type: "object" as const,
-          properties: Object.fromEntries(
-            t.parameters.map((p) => [
-              p.name,
-              {
-                type: p.type,
-                description: p.description,
-                ...(p.enum ? { enum: p.enum } : {}),
-              },
-            ])
-          ),
-          required: t.parameters.filter((p) => p.required).map((p) => p.name),
-        },
-      },
-    }));
-
-    const completion = await Promise.race([
-      openaiClient.chat.completions.create({
-        model,
-        temperature: 0.3,
-        messages: [
-          { role: "system", content: buildSystemPrompt(tools) },
-          ...apiMessages,
-        ],
-        tools: apiTools,
-        tool_choice: "auto",
-        ...(model === "kimi-k2.5" ? { thinking: { type: "disabled" } } : {}),
-      }),
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("LLM API 调用超时 (30秒)")), 30000)
-      ),
-    ]);
-
-    const response = completion.choices[0].message;
-
-    // 处理 function call
-    if (response.tool_calls && response.tool_calls.length > 0) {
-      const tc = response.tool_calls[0];
-      return {
-        type: "tool",
-        toolCall: {
-          id: tc.id,
-          tool: tc.function.name,
-          args: JSON.parse(tc.function.arguments),
-        },
-      };
     }
-
-    // 直接回答
-    return { type: "answer", content: response.content || "" };
-  } catch (err) {
-    const error = err instanceof Error ? err.message : String(err);
-    // 429 过载错误：立即回退，不等待超时
-    if (error.includes("429") || error.includes("overloaded") || error.includes("rate limit")) {
-      console.error(`❌ ${provider} API 过载 (429)，立即回退到模拟模式`);
-      return callMockLLM(messages, tools);
-    }
-    console.error(`❌ ${provider} API 调用失败:`, error);
-    // API 失败时回退到模拟模式
-    console.log("🔄 回退到模拟 LLM...");
-    return callMockLLM(messages, tools);
   }
+
+  // 理论上不会到达这里
+  return callMockLLM(messages, tools);
+}
+
+/** 单次 LLM 调用 */
+async function callLLMOnce(
+  messages: Message[],
+  tools: ToolDescription[],
+  model: string
+): Promise<NextAction> {
+  // 转换消息为 OpenAI API 格式
+  const apiMessages = messages.map((m) => {
+    if (m.role === "assistant" && m.toolCalls) {
+      return {
+        role: "assistant",
+        content: m.content || null,
+        tool_calls: m.toolCalls,
+      };
+    }
+    if (m.role === "tool" && m.toolCallId) {
+      return {
+        role: "tool",
+        content: m.content,
+        tool_call_id: m.toolCallId,
+      };
+    }
+    return {
+      role: m.role,
+      content: m.content,
+    };
+  });
+
+  // 转换工具为 OpenAI functions 格式
+  const apiTools = tools.map((t) => ({
+    type: "function" as const,
+    function: {
+      name: t.name,
+      description: t.description,
+      parameters: {
+        type: "object" as const,
+        properties: Object.fromEntries(
+          t.parameters.map((p) => [
+            p.name,
+            {
+              type: p.type,
+              description: p.description,
+              ...(p.enum ? { enum: p.enum } : {}),
+            },
+          ])
+        ),
+        required: t.parameters.filter((p) => p.required).map((p) => p.name),
+      },
+    },
+  }));
+
+  const completion = await Promise.race([
+    openaiClient.chat.completions.create({
+      model,
+      temperature: 0.3,
+      messages: [
+        { role: "system", content: buildSystemPrompt(tools) },
+        ...apiMessages,
+      ],
+      tools: apiTools,
+      tool_choice: "auto",
+      ...(model === "kimi-k2.5" ? { thinking: { type: "disabled" } } : {}),
+    }),
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("LLM API 调用超时 (30秒)")), 30000)
+    ),
+  ]);
+
+  const response = completion.choices[0].message;
+
+  // 处理 function call
+  if (response.tool_calls && response.tool_calls.length > 0) {
+    const tc = response.tool_calls[0];
+    return {
+      type: "tool",
+      toolCall: {
+        id: tc.id,
+        tool: tc.function.name,
+        args: JSON.parse(tc.function.arguments),
+      },
+    };
+  }
+
+  // 直接回答
+  return { type: "answer", content: response.content || "" };
+}
+
+/** 延迟工具 */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /** 模拟 LLM（基于关键词的简单规则） */
