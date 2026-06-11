@@ -105,8 +105,17 @@ export async function getActivities(
   const res = await fetch(`${STRAVA_API_BASE}/athlete/activities?${params.toString()}`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
-  if (!res.ok) throw new Error(`getActivities failed: ${res.status}`);
-  return res.json();
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`getActivities failed: ${res.status} ${errText}`);
+  }
+
+  const data = await res.json();
+  // 防御：Strava 偶尔返回非数组（如空对象或错误结构）
+  if (!Array.isArray(data)) {
+    throw new Error(`getActivities returned non-array: ${JSON.stringify(data).slice(0, 200)}`);
+  }
+  return data;
 }
 
 /** 获取单个活动详情 */
@@ -135,10 +144,12 @@ export async function getAllRunActivities(
 
   for (let page = 1; page <= maxPages; page++) {
     const activities = await getActivities(accessToken, { page, perPage: 200, after, before });
-    if (activities.length === 0) break;
+
+    // 防御：getActivities 已保证返回数组，但再加一层保险
+    if (!Array.isArray(activities) || activities.length === 0) break;
 
     const runs = activities.filter(
-      (a) => a.type === "Run" || a.sport_type === "Run"
+      (a) => a != null && (a.type === "Run" || a.sport_type === "Run")
     );
     all.push(...runs);
 

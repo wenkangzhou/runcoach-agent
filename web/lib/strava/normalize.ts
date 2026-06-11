@@ -47,30 +47,34 @@ function inferFeeling(activity: StravaActivity): string {
 
 /** 清洗单个 Strava 活动 */
 export function normalizeActivity(activity: StravaActivity): NormalizedRun {
-  const distanceKm = activity.distance / 1000;
-  const durationMin = activity.elapsed_time / 60;
-  const movingMin = activity.moving_time / 60;
-  const paceSecPerKm = activity.moving_time / distanceKm;
+  // 防御：处理缺失字段的默认值
+  const distanceMeters = activity.distance ?? 0;
+  const distanceKm = distanceMeters / 1000;
+  const elapsedSec = activity.elapsed_time ?? 0;
+  const movingSec = activity.moving_time ?? 0;
+  const durationMin = elapsedSec / 60;
+  const movingMin = movingSec / 60;
+  const paceSecPerKm = movingSec > 0 && distanceKm > 0 ? movingSec / distanceKm : 0;
 
   const notesParts: string[] = [];
   if (activity.name) notesParts.push(activity.name);
   if (activity.description) notesParts.push(activity.description);
-  if (activity.total_elevation_gain > 0) {
+  if ((activity.total_elevation_gain ?? 0) > 0) {
     notesParts.push(`爬升 ${Math.round(activity.total_elevation_gain)}m`);
   }
   if (activity.device_name) notesParts.push(`设备: ${activity.device_name}`);
 
   return {
-    stravaId: activity.id,
-    date: activity.start_date_local.split("T")[0],
-    name: activity.name,
+    stravaId: activity.id ?? 0,
+    date: (activity.start_date_local ?? activity.start_date ?? "").split("T")[0] || "-",
+    name: activity.name || "未命名活动",
     distance: Math.round(distanceKm * 10) / 10,
     duration: Math.round(durationMin * 10) / 10,
     movingDuration: Math.round(movingMin * 10) / 10,
     pace: formatPace(paceSecPerKm),
-    avgSpeed: Math.round(activity.average_speed * 100) / 100,
-    maxSpeed: Math.round(activity.max_speed * 100) / 100,
-    elevationGain: Math.round(activity.total_elevation_gain),
+    avgSpeed: Math.round((activity.average_speed ?? 0) * 100) / 100,
+    maxSpeed: Math.round((activity.max_speed ?? 0) * 100) / 100,
+    elevationGain: Math.round(activity.total_elevation_gain ?? 0),
     avgHr: activity.average_heartrate,
     maxHr: activity.max_heartrate,
     avgCadence: activity.average_cadence,
@@ -78,7 +82,7 @@ export function normalizeActivity(activity: StravaActivity): NormalizedRun {
     sufferScore: activity.suffer_score,
     rpe: activity.perceived_exertion,
     feeling: inferFeeling(activity),
-    notes: notesParts.join(" · "),
+    notes: notesParts.join(" · ") || "-",
     route: activity.map?.summary_polyline || undefined,
     splits: activity.splits_metric,
     laps: activity.laps,
@@ -89,7 +93,14 @@ export function normalizeActivity(activity: StravaActivity): NormalizedRun {
 
 /** 批量清洗 */
 export function normalizeActivities(activities: StravaActivity[]): NormalizedRun[] {
-  return activities.map(normalizeActivity);
+  // 防御：确保输入是数组
+  if (!Array.isArray(activities)) {
+    console.error("normalizeActivities: expected array, got", typeof activities, activities);
+    return [];
+  }
+  return activities
+    .filter((a) => a != null) // 过滤 null/undefined 项
+    .map(normalizeActivity);
 }
 
 /** 将 NormalizedRun 转换为内部 RunLog 格式 */
@@ -130,6 +141,7 @@ export function classifyRunType(run: NormalizedRun): string {
 
 /** 计算分段配速 */
 export function calculateSplitPaces(splits: StravaSplit[]): { km: number; pace: string; hr?: number }[] {
+  if (!Array.isArray(splits)) return [];
   return splits.map((s, i) => ({
     km: i + 1,
     pace: formatPace(s.moving_time / (s.distance / 1000)),
