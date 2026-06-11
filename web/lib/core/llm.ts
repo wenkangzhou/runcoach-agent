@@ -40,12 +40,16 @@ async function initLLMClient(): Promise<void> {
       openaiClient = new OpenAI({
         apiKey: process.env.KIMI_API_KEY,
         baseURL: "https://api.moonshot.cn/v1",
+        maxRetries: 0, // 禁用自动重试，避免429时累积请求
+        timeout: 30000,
       });
       console.log("🤖 LLM Provider: Kimi (Moonshot AI)");
     } else if (provider === "openai") {
       openaiClient = new OpenAI({
         apiKey: process.env.OPENAI_API_KEY,
         baseURL: process.env.OPENAI_BASE_URL,
+        maxRetries: 0,
+        timeout: 30000,
       });
       console.log("🤖 LLM Provider: OpenAI");
     }
@@ -58,7 +62,7 @@ async function initLLMClient(): Promise<void> {
 function getModel(): string {
   const provider = getProvider();
   if (provider === "kimi") {
-    return process.env.KIMI_MODEL || "moonshot-v1-8k";
+    return process.env.KIMI_MODEL || "kimi-k2.5";
   }
   if (provider === "openai") {
     return process.env.OPENAI_MODEL || "gpt-4o-mini";
@@ -179,9 +183,10 @@ async function callRealLLM(
         ],
         tools: apiTools,
         tool_choice: "auto",
+        ...(model === "kimi-k2.5" ? { thinking: { type: "disabled" } } : {}),
       }),
       new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("LLM API 调用超时 (8秒)")), 8000)
+        setTimeout(() => reject(new Error("LLM API 调用超时 (30秒)")), 30000)
       ),
     ]);
 
