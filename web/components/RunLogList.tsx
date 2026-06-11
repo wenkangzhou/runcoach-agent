@@ -200,6 +200,7 @@ const styles: Record<string, React.CSSProperties> = {
     background: "rgba(239, 68, 68, 0.1)",
     borderRadius: "4px",
   },
+  empty: {
     color: "var(--text-secondary)",
     fontSize: "13px",
     textAlign: "center",
@@ -242,13 +243,5 @@ const styles: Record<string, React.CSSProperties> = {
     color: "var(--text-secondary)",
     marginTop: "4px",
     fontStyle: "italic",
-  },
-  error: {
-    color: "var(--error)",
-    fontSize: "12px",
-    textAlign: "center",
-    padding: "12px",
-    background: "rgba(239, 68, 68, 0.1)",
-    borderRadius: "4px",
   },
 };

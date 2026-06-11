@@ -169,16 +169,21 @@ async function callRealLLM(
       },
     }));
 
-    const completion = await openaiClient.chat.completions.create({
-      model,
-      temperature: 0.3,
-      messages: [
-        { role: "system", content: buildSystemPrompt(tools) },
-        ...apiMessages,
-      ],
-      tools: apiTools,
-      tool_choice: "auto",
-    });
+    const completion = await Promise.race([
+      openaiClient.chat.completions.create({
+        model,
+        temperature: 0.3,
+        messages: [
+          { role: "system", content: buildSystemPrompt(tools) },
+          ...apiMessages,
+        ],
+        tools: apiTools,
+        tool_choice: "auto",
+      }),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("LLM API 调用超时 (30秒)")), 30000)
+      ),
+    ]);
 
     const response = completion.choices[0].message;
 
@@ -199,6 +204,11 @@ async function callRealLLM(
     return { type: "answer", content: response.content || "" };
   } catch (err) {
     const error = err instanceof Error ? err.message : String(err);
+    // 429 过载错误：立即回退，不等待超时
+    if (error.includes("429") || error.includes("overloaded") || error.includes("rate limit")) {
+      console.error(`❌ ${provider} API 过载 (429)，立即回退到模拟模式`);
+      return callMockLLM(messages, tools);
+    }
     console.error(`❌ ${provider} API 调用失败:`, error);
     // API 失败时回退到模拟模式
     console.log("🔄 回退到模拟 LLM...");
