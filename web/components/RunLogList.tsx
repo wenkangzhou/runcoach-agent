@@ -27,7 +27,7 @@ export default function RunLogList() {
       const res = await fetch("/api/runs");
       const data = await res.json();
       if (data.success) {
-        setRuns(data.runs);
+        setRuns(data.runs || []);
       }
     } catch (err) {
       console.error("获取记录失败:", err);

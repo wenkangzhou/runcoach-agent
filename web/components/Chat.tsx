@@ -50,8 +50,8 @@ export default function Chat() {
           ...prev,
           {
             role: "assistant",
-            content: data.answer,
-            toolCalls: data.toolCalls,
+            content: data.answer || "未能生成回答。",
+            toolCalls: data.toolCalls || [],
             iterations: data.iterations,
           },
         ]);

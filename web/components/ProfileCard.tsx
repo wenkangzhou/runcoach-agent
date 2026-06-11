@@ -131,11 +131,11 @@ export default function ProfileCard() {
               <span style={styles.value}>{profile.experience}</span>
             </div>
           )}
-          {profile.issues.length > 0 && (
+          {(profile.issues?.length || 0) > 0 && (
             <div style={styles.issues}>
               <span style={styles.label}>⚠️ 注意事项</span>
               <div style={styles.issueTags}>
-                {profile.issues.map((issue, i) => (
+                {profile.issues?.map((issue, i) => (
                   <span key={i} style={styles.issueTag}>{issue}</span>
                 ))}
               </div>

@@ -130,6 +130,7 @@ export default function StravaConnect() {
 
 function formatTime(iso: string): string {
   const d = new Date(iso);
+  if (isNaN(d.getTime())) return "未知时间";
   const now = new Date();
   const diff = Math.floor((now.getTime() - d.getTime()) / 60000);
   if (diff < 1) return "刚刚";
