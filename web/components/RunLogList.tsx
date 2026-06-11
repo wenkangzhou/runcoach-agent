@@ -14,6 +14,7 @@ interface RunLog {
 export default function RunLogList() {
   const [runs, setRuns] = useState<RunLog[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [form, setForm] = useState({
     distance: "",
     pace: "",
@@ -24,12 +25,17 @@ export default function RunLogList() {
 
   const fetchRuns = async () => {
     try {
+      setError("");
       const res = await fetch("/api/runs");
       const data = await res.json();
       if (data.success) {
         setRuns(data.runs || []);
+      } else {
+        setError(data.error || "获取记录失败");
       }
     } catch (err) {
+      const msg = err instanceof Error ? err.message : "网络错误";
+      setError(msg);
       console.error("获取记录失败:", err);
     }
   };
@@ -117,7 +123,10 @@ export default function RunLogList() {
 
       {/* 记录列表 */}
       <div style={styles.list}>
-        {runs.length === 0 && (
+        {error && (
+          <p style={styles.error}>❌ {error}</p>
+        )}
+        {!error && runs.length === 0 && (
           <p style={styles.empty}>暂无记录</p>
         )}
         {runs.map((run, i) => (
@@ -183,7 +192,14 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: "column",
     gap: "8px",
   },
-  empty: {
+  error: {
+    color: "var(--error)",
+    fontSize: "12px",
+    textAlign: "center",
+    padding: "12px",
+    background: "rgba(239, 68, 68, 0.1)",
+    borderRadius: "4px",
+  },
     color: "var(--text-secondary)",
     fontSize: "13px",
     textAlign: "center",
@@ -226,5 +242,13 @@ const styles: Record<string, React.CSSProperties> = {
     color: "var(--text-secondary)",
     marginTop: "4px",
     fontStyle: "italic",
+  },
+  error: {
+    color: "var(--error)",
+    fontSize: "12px",
+    textAlign: "center",
+    padding: "12px",
+    background: "rgba(239, 68, 68, 0.1)",
+    borderRadius: "4px",
   },
 };

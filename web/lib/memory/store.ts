@@ -130,6 +130,11 @@ export async function updateProfile(updates: Partial<UserProfile>): Promise<void
 /** 加载最近训练记录 */
 export async function loadRuns(): Promise<RunLog[]> {
   await initCache();
+  // 防御：如果缓存被意外设为 null，重新加载
+  if (cacheRuns == null) {
+    cacheLoaded = false;
+    await initCache();
+  }
   return cacheRuns!;
 }
 
@@ -150,7 +155,8 @@ export async function addRun(run: RunLog): Promise<void> {
   if (isRedisConfigured()) {
     await addRunRedis(run);
     // 刷新缓存
-    cacheRuns = await loadRunsRedis();
+    const fresh = await loadRunsRedis();
+    cacheRuns = fresh || [];
     return;
   }
   const runs = await loadRuns();
