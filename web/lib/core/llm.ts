@@ -412,8 +412,31 @@ async function callMockLLM(
     }
 
     // Day 8: MCP 工具触发 - 查询历史记录
-    const hasMCPRunsResult = messages.some(m => m.role === "tool" && m.toolResult?.tool === "mcp_get_recent_runs");
-    if (!hasMCPRunsResult && (text.includes("历史") || text.includes("记录") || text.includes("最近跑") || text.includes("周跑量"))) {
+    const mcpRunsResult = messages.find(m => m.role === "tool" && m.toolResult?.tool === "mcp_get_recent_runs")?.toolResult?.result as { count?: number; runs?: Array<{ date: string; distance: number; pace: string; feeling: string }> } | undefined;
+    const hasMCPRunsResult = !!mcpRunsResult;
+
+    if (hasMCPRunsResult) {
+      // 已获取历史记录，基于数据生成回答
+      const runs = mcpRunsResult.runs || [];
+      const totalDistance = runs.reduce((sum, r) => sum + (r.distance || 0), 0);
+      const avgPace = runs.length > 0 ? runs[0].pace : "-";
+      const latestDate = runs.length > 0 ? runs[0].date : "-";
+      const latestDistance = runs.length > 0 ? runs[0].distance : 0;
+
+      return {
+        type: "answer",
+        content: `【基于真实数据】你最近 ${runs.length} 次跑步记录：
+
+📊 总跑量: ${totalDistance.toFixed(1)}km
+🏃 最新一次: ${latestDate}，${latestDistance}km，配速 ${avgPace}
+
+${runs.slice(0, 3).map(r => `- ${r.date}: ${r.distance}km @ ${r.pace}，感受: ${r.feeling || "-"}`).join("\n")}
+
+💡 建议: 保持当前训练节奏，注意恢复和拉伸。`,
+      };
+    }
+
+    if (text.includes("历史") || text.includes("记录") || text.includes("最近跑") || text.includes("周跑量")) {
       return {
         type: "tool",
         toolCall: {
