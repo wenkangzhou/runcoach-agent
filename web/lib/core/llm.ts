@@ -138,7 +138,7 @@ async function callRealLLM(
     : [primaryModel];
 
   // 去重
-  const models = Array.from(new Set(fallbackModels));
+  const models = fallbackModels.filter((m, i, arr) => arr.indexOf(m) === i);
 
   for (let modelIndex = 0; modelIndex < models.length; modelIndex++) {
     const model = models[modelIndex];
