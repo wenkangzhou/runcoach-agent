@@ -11,24 +11,24 @@ interface TrainingCalendarProps {
 const WEEK_DAYS = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
 
 const TYPE_COLORS: Record<string, { bg: string; border: string; text: string }> = {
-  "轻松跑": { bg: "bg-emerald-900/30", border: "border-emerald-700", text: "text-emerald-400" },
-  "恢复跑": { bg: "bg-emerald-900/30", border: "border-emerald-700", text: "text-emerald-400" },
-  "间歇跑": { bg: "bg-red-900/30", border: "border-red-700", text: "text-red-400" },
-  "节奏跑": { bg: "bg-red-900/30", border: "border-red-700", text: "text-red-400" },
-  "长距离": { bg: "bg-blue-900/30", border: "border-blue-700", text: "text-blue-400" },
-  "比赛": { bg: "bg-blue-900/30", border: "border-blue-700", text: "text-blue-400" },
-  "休息": { bg: "bg-zinc-800", border: "border-zinc-700", text: "text-zinc-500" },
+  "轻松跑": { bg: "rgba(6, 78, 59, 0.3)", border: "#047857", text: "#34d399" },
+  "恢复跑": { bg: "rgba(6, 78, 59, 0.3)", border: "#047857", text: "#34d399" },
+  "间歇跑": { bg: "rgba(127, 29, 29, 0.3)", border: "#b91c1c", text: "#f87171" },
+  "节奏跑": { bg: "rgba(127, 29, 29, 0.3)", border: "#b91c1c", text: "#f87171" },
+  "长距离": { bg: "rgba(30, 58, 138, 0.3)", border: "#1d4ed8", text: "#60a5fa" },
+  "比赛": { bg: "rgba(30, 58, 138, 0.3)", border: "#1d4ed8", text: "#60a5fa" },
+  "休息": { bg: "#27272a", border: "#3f3f46", text: "#71717a" },
 };
 
 function getTypeColors(type: string) {
-  return TYPE_COLORS[type] || { bg: "bg-zinc-800", border: "border-zinc-700", text: "text-zinc-500" };
+  return TYPE_COLORS[type] || { bg: "#27272a", border: "#3f3f46", text: "#71717a" };
 }
 
 function StatusIcon({ status }: { status?: string }) {
-  if (status === "completed") return <span className="text-orange-500 font-bold">✓</span>;
-  if (status === "skipped") return <span className="text-zinc-500 font-bold">✗</span>;
-  if (status === "partial") return <span className="text-orange-500 font-bold">◐</span>;
-  return <span className="text-zinc-600">○</span>;
+  if (status === "completed") return <span style={{ color: "#f97316", fontWeight: "bold" }}>✓</span>;
+  if (status === "skipped") return <span style={{ color: "#71717a", fontWeight: "bold" }}>✗</span>;
+  if (status === "partial") return <span style={{ color: "#f97316", fontWeight: "bold" }}>◐</span>;
+  return <span style={{ color: "#52525b" }}>○</span>;
 }
 
 function getDayDate(startDate: string, weekIndex: number, dayIndex: number): string {
@@ -151,8 +151,11 @@ export default function TrainingCalendar({ plan, onUpdate }: TrainingCalendarPro
           return (
             <button
               key={dayIndex}
-              style={styles.dayCard}
-              className={`${colors.bg} border ${colors.border} rounded-sm`}
+              style={{
+                ...styles.dayCard,
+                backgroundColor: colors.bg,
+                borderColor: colors.border,
+              }}
               onClick={() =>
                 day.type !== "休息" &&
                 setModalDay({ weekIndex: activeWeek, dayIndex, day })
@@ -162,7 +165,7 @@ export default function TrainingCalendar({ plan, onUpdate }: TrainingCalendarPro
                 <span style={styles.dayName}>{WEEK_DAYS[dayIndex]}</span>
                 <span style={styles.dayDate}>{dateStr}</span>
               </div>
-              <div style={styles.dayType} className={colors.text}>
+              <div style={{ ...styles.dayType, color: colors.text }}>
                 {day.type}
               </div>
               <div style={styles.dayBody}>
@@ -364,6 +367,8 @@ const styles: Record<string, React.CSSProperties> = {
     minHeight: "80px",
     background: "transparent",
     fontFamily: "'Courier New', monospace",
+    border: "2px solid transparent",
+    borderRadius: "4px",
   },
   dayHeader: {
     display: "flex",

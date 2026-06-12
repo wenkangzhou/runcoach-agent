@@ -357,7 +357,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   tabActive: {
     color: "var(--accent)",
-    borderBottomColor: "var(--accent)",
+    borderBottom: "2px solid var(--accent)",
     fontWeight: "bold",
   },
   tabContent: {
