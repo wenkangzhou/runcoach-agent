@@ -1,9 +1,26 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import Chat from "../components/Chat";
+import Dashboard from "../components/dashboard/Dashboard";
 import ProfileCard from "../components/ProfileCard";
 import RunLogList from "../components/RunLogList";
 import StravaConnect from "../components/StravaConnect";
 
 export default function Home() {
+  const [activeTab, setActiveTab] = useState<"chat" | "dashboard">("chat");
+  const [mobileView, setMobileView] = useState<"main" | "sidebar">("main");
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
   return (
     <div style={styles.page}>
       {/* CRT 扫描线效果 */}
@@ -23,20 +40,106 @@ export default function Home() {
 
       {/* 主内容区 */}
       <div style={styles.main}>
-        {/* 左侧边栏 */}
-        <aside style={styles.sidebar}>
-          <StravaConnect />
-          <div style={styles.divider} />
-          <ProfileCard />
-          <div style={styles.divider} />
-          <RunLogList />
-        </aside>
+        {/* 左侧边栏 - 桌面端始终显示，移动端可切换 */}
+        {(!isMobile || mobileView === "sidebar") && (
+          <aside style={styles.sidebar}>
+            {isMobile && (
+              <button
+                style={styles.backBtn}
+                onClick={() => setMobileView("main")}
+              >
+                ← 返回
+              </button>
+            )}
+            <StravaConnect />
+            <div style={styles.divider} />
+            <ProfileCard />
+            <div style={styles.divider} />
+            <RunLogList />
+          </aside>
+        )}
 
-        {/* 右侧聊天区 */}
-        <main style={styles.chatArea}>
-          <Chat />
-        </main>
+        {/* 右侧内容区 */}
+        {(!isMobile || mobileView === "main") && (
+          <main style={styles.contentArea}>
+            {/* 移动端侧边栏切换按钮 */}
+            {isMobile && (
+              <button
+                style={styles.sidebarToggle}
+                onClick={() => setMobileView("sidebar")}
+              >
+                ☰ 训练记录
+              </button>
+            )}
+
+            {/* 标签栏 */}
+            <div style={styles.tabBar}>
+              <button
+                style={{
+                  ...styles.tab,
+                  ...(activeTab === "chat" ? styles.tabActive : {}),
+                }}
+                onClick={() => setActiveTab("chat")}
+              >
+                💬 教练对话
+              </button>
+              <button
+                style={{
+                  ...styles.tab,
+                  ...(activeTab === "dashboard" ? styles.tabActive : {}),
+                }}
+                onClick={() => setActiveTab("dashboard")}
+              >
+                📊 数据仪表盘
+              </button>
+            </div>
+
+            {/* 内容区 */}
+            <div style={styles.tabContent}>
+              {activeTab === "chat" ? <Chat /> : <Dashboard />}
+            </div>
+          </main>
+        )}
       </div>
+
+      {/* 移动端底部导航 */}
+      {isMobile && (
+        <nav style={styles.bottomNav}>
+          <button
+            style={{
+              ...styles.navBtn,
+              ...(activeTab === "chat" ? styles.navBtnActive : {}),
+            }}
+            onClick={() => {
+              setActiveTab("chat");
+              setMobileView("main");
+            }}
+          >
+            <span style={styles.navIcon}>💬</span>
+            <span style={styles.navLabel}>教练</span>
+          </button>
+          <button
+            style={{
+              ...styles.navBtn,
+              ...(activeTab === "dashboard" ? styles.navBtnActive : {}),
+            }}
+            onClick={() => {
+              setActiveTab("dashboard");
+              setMobileView("main");
+            }}
+          >
+            <span style={styles.navIcon}>📊</span>
+            <span style={styles.navLabel}>数据</span>
+          </button>
+          <button
+            style={styles.navBtn}
+            onClick={() => setMobileView("sidebar")}
+          >
+            <span style={styles.navIcon}>📋</span>
+            <span style={styles.navLabel}>记录</span>
+          </button>
+        </nav>
+      )}
     </div>
   );
 }
@@ -114,10 +217,87 @@ const styles: Record<string, React.CSSProperties> = {
     background: "var(--border)",
     margin: "0 16px",
   },
-  chatArea: {
+  contentArea: {
     flex: 1,
     overflow: "hidden",
     display: "flex",
     flexDirection: "column",
+  },
+  tabBar: {
+    display: "flex",
+    borderBottom: "1px solid var(--border)",
+    background: "var(--bg-secondary)",
+    flexShrink: 0,
+  },
+  tab: {
+    padding: "12px 20px",
+    fontSize: "14px",
+    color: "var(--text-secondary)",
+    background: "transparent",
+    borderBottom: "2px solid transparent",
+    cursor: "pointer",
+    minHeight: "44px",
+    transition: "all 0.2s",
+  },
+  tabActive: {
+    color: "var(--accent)",
+    borderBottomColor: "var(--accent)",
+    fontWeight: "bold",
+  },
+  tabContent: {
+    flex: 1,
+    overflow: "hidden",
+    display: "flex",
+    flexDirection: "column",
+  },
+  sidebarToggle: {
+    padding: "10px 16px",
+    background: "var(--bg-tertiary)",
+    color: "var(--text-primary)",
+    fontSize: "14px",
+    textAlign: "left",
+    borderBottom: "1px solid var(--border)",
+    minHeight: "44px",
+  },
+  backBtn: {
+    padding: "12px 16px",
+    background: "var(--bg-tertiary)",
+    color: "var(--text-primary)",
+    fontSize: "14px",
+    textAlign: "left",
+    borderBottom: "1px solid var(--border)",
+    minHeight: "44px",
+  },
+  bottomNav: {
+    display: "flex",
+    justifyContent: "space-around",
+    alignItems: "center",
+    height: "56px",
+    background: "var(--bg-secondary)",
+    borderTop: "1px solid var(--border)",
+    flexShrink: 0,
+    zIndex: 100,
+  },
+  navBtn: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "2px",
+    flex: 1,
+    height: "100%",
+    background: "transparent",
+    color: "var(--text-secondary)",
+    fontSize: "10px",
+    minHeight: "44px",
+  },
+  navBtnActive: {
+    color: "var(--accent)",
+  },
+  navIcon: {
+    fontSize: "20px",
+  },
+  navLabel: {
+    fontSize: "10px",
   },
 };

@@ -1,0 +1,22 @@
+{
+  "name": "跑蓝 RunCoach - AI 跑步教练",
+  "short_name": "跑蓝",
+  "description": "基于 Strava 数据同步的跑步分析 Web 应用，集成 AI 训练解读",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#18181b",
+  "theme_color": "#18181b",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

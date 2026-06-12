@@ -172,16 +172,18 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: "16px",
   },
   input: {
-    fontSize: "13px",
-    padding: "6px 10px",
+    fontSize: "14px",
+    padding: "10px 12px",
+    minHeight: "44px",
   },
   button: {
-    padding: "8px",
+    padding: "10px",
     background: "var(--accent)",
     color: "var(--bg-primary)",
     borderRadius: "4px",
-    fontSize: "13px",
+    fontSize: "14px",
     fontWeight: "bold",
+    minHeight: "44px",
   },
   buttonDisabled: {
     opacity: 0.5,
@@ -194,7 +196,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   error: {
     color: "var(--error)",
-    fontSize: "12px",
+    fontSize: "14px",
     textAlign: "center",
     padding: "12px",
     background: "rgba(239, 68, 68, 0.1)",
@@ -202,12 +204,12 @@ const styles: Record<string, React.CSSProperties> = {
   },
   empty: {
     color: "var(--text-secondary)",
-    fontSize: "13px",
+    fontSize: "14px",
     textAlign: "center",
     padding: "20px",
   },
   runItem: {
-    padding: "10px",
+    padding: "12px",
     background: "var(--bg-secondary)",
     borderRadius: "6px",
     border: "1px solid var(--border)",
@@ -218,11 +220,11 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: "6px",
   },
   runDate: {
-    fontSize: "12px",
+    fontSize: "14px",
     color: "var(--text-secondary)",
   },
   runDistance: {
-    fontSize: "14px",
+    fontSize: "16px",
     fontWeight: "bold",
     color: "var(--accent)",
   },
@@ -232,14 +234,14 @@ const styles: Record<string, React.CSSProperties> = {
     flexWrap: "wrap",
   },
   runBadge: {
-    fontSize: "11px",
-    padding: "2px 6px",
+    fontSize: "12px",
+    padding: "4px 8px",
     background: "var(--bg-tertiary)",
     borderRadius: "3px",
     color: "var(--text-secondary)",
   },
   runNotes: {
-    fontSize: "12px",
+    fontSize: "14px",
     color: "var(--text-secondary)",
     marginTop: "4px",
     fontStyle: "italic",

@@ -85,7 +85,7 @@ export default function Chat() {
 
   return (
     <div style={styles.container}>
-      {/* 消息列表 */}
+      {/* 消息列表 - 全屏滚动 */}
       <div style={styles.messages}>
         {messages.map((msg, i) => (
           <div
@@ -125,7 +125,7 @@ export default function Chat() {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* 输入框 */}
+      {/* 输入框 - 固定在底部 */}
       <div style={styles.inputArea}>
         <textarea
           style={styles.textarea}
@@ -133,7 +133,7 @@ export default function Chat() {
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="输入你的跑步问题... (Shift+Enter 换行)"
-          rows={2}
+          rows={1}
           disabled={loading}
         />
         <button
@@ -165,12 +165,14 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     gap: "12px",
+    WebkitOverflowScrolling: "touch",
   },
   message: {
     padding: "12px 16px",
     borderRadius: "8px",
     maxWidth: "85%",
     wordBreak: "break-word",
+    fontSize: "14px",
   },
   userMessage: {
     alignSelf: "flex-end",
@@ -231,14 +233,21 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "12px 16px",
     borderTop: "1px solid var(--border)",
     background: "var(--bg-secondary)",
+    position: "sticky",
+    bottom: 0,
+    zIndex: 10,
   },
   textarea: {
     flex: 1,
     resize: "none",
     fontSize: "14px",
+    minHeight: "44px",
+    maxHeight: "120px",
+    padding: "10px 12px",
   },
   sendButton: {
     width: "44px",
+    minWidth: "44px",
     height: "44px",
     background: "var(--accent)",
     color: "var(--bg-primary)",
@@ -248,6 +257,7 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     justifyContent: "center",
     transition: "opacity 0.2s",
+    flexShrink: 0,
   },
   sendButtonDisabled: {
     opacity: 0.5,
