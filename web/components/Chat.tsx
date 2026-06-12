@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useSession } from "next-auth/react";
 
 interface Message {
   role: "user" | "assistant";
@@ -13,13 +12,13 @@ interface Message {
 const STORAGE_KEY = "runcoach_chat_history";
 
 export default function Chat() {
-  const { data: session } = useSession();
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
       content: "🏃 欢迎来到跑蓝 RunCoach！\n\n我是你的 AI 跑步教练，可以帮你：\n• 分析训练状态，给出明日建议\n• 回答跑步知识（心率区间、补给策略、伤病预防）\n• 记录和追踪你的跑步数据\n\n今天跑了多少？感觉怎么样？",
     },
   ]);
+  const isInitialMount = useRef(true);
 
   // 客户端 mount 后从 localStorage 加载聊天记录
   useEffect(() => {
@@ -39,8 +38,12 @@ export default function Chat() {
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // 保存聊天记录到 localStorage
+  // 保存聊天记录到 localStorage（跳过首次 mount，避免覆盖已有数据）
   useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
   }, [messages]);
 
