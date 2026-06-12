@@ -225,9 +225,11 @@ async function callLLMOnce(
   }));
 
   // 使用 SDK 内置超时和重试，不再用 Promise.race 打断
+  // kimi-k2.5 只支持 temperature 0.6
+  const temp = model === "kimi-k2.5" ? 0.6 : 0.3;
   const completion = await openaiClient.chat.completions.create({
     model,
-    temperature: 0.3,
+    temperature: temp,
     messages: [
       { role: "system", content: buildSystemPrompt(tools) },
       ...apiMessages,

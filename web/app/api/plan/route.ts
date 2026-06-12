@@ -157,7 +157,7 @@ async function generatePlanWithLLM(input: PlanInput): Promise<{
 
     const completion = await client.chat.completions.create({
       model: provider === "kimi" ? (process.env.KIMI_MODEL || "kimi-k2.5") : (process.env.OPENAI_MODEL || "gpt-4o-mini"),
-      temperature: 0.3,
+      temperature: (process.env.KIMI_MODEL || "").includes("k2.5") ? 0.6 : 0.3,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
