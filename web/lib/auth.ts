@@ -4,7 +4,7 @@
  */
 
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth-config";
 
 /** 从 session 获取当前用户 ID，未登录返回 "anonymous" */
 export async function getCurrentUserId(): Promise<string> {

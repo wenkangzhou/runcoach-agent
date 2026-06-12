@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { SessionProvider } from "next-auth/react";
+import AuthProvider from "@/components/AuthProvider";
 
 export const metadata: Metadata = {
   title: "跑蓝 RunCoach - AI 跑步教练",
@@ -44,7 +44,7 @@ export default function RootLayout({
         />
       </head>
       <body>
-        <SessionProvider>{children}</SessionProvider>
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );
