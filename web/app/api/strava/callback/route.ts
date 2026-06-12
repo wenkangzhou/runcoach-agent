@@ -37,7 +37,6 @@ export async function GET(request: Request) {
 
     // 用 code 换 token
     const tokenRes = await exchangeCodeForToken(code);
-    const userId = String(tokenRes.athlete.id);
 
     // 保存 token
     await saveStravaToken({
@@ -47,14 +46,14 @@ export async function GET(request: Request) {
       athleteId: tokenRes.athlete.id,
       athleteName: `${tokenRes.athlete.firstname} ${tokenRes.athlete.lastname}`.trim(),
       profileImage: tokenRes.athlete.profile,
-    }, userId);
+    });
 
     // 保存连接状态
     await saveStravaConnection({
       athleteId: tokenRes.athlete.id,
       athleteName: `${tokenRes.athlete.firstname} ${tokenRes.athlete.lastname}`.trim(),
       profileImage: tokenRes.athlete.profile,
-    }, userId);
+    });
 
     // 跳回首页，带上成功标记
     return NextResponse.redirect(`${baseUrl}/?strava_connected=1`);

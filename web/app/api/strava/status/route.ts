@@ -5,13 +5,11 @@
 
 import { NextResponse } from "next/server";
 import { loadStravaConnection } from "@/lib/strava/store";
-import { getCurrentUserId } from "@/lib/auth";
 import type { StravaConnection } from "@/lib/strava/types";
 
 export async function GET() {
   try {
-    const userId = await getCurrentUserId();
-    const conn = await loadStravaConnection(userId);
+    const conn = await loadStravaConnection();
 
     const status: StravaConnection = conn
       ? {

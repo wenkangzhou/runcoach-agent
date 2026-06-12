@@ -18,7 +18,6 @@ export const authOptions = {
     async signIn({ account, profile }: any) {
       // Strava 登录时，自动保存 token 到 Redis 供后续 API 调用
       if (account?.provider === "strava" && account.access_token) {
-        const userId = String(profile?.id);
         try {
           await saveStravaToken(
             {
@@ -28,16 +27,14 @@ export const authOptions = {
               athleteId: Number(profile?.id),
               athleteName: `${profile?.firstname || ""} ${profile?.lastname || ""}`.trim(),
               profileImage: profile?.profile,
-            },
-            userId
+            }
           );
           await saveStravaConnection(
             {
               athleteId: Number(profile?.id),
               athleteName: `${profile?.firstname || ""} ${profile?.lastname || ""}`.trim(),
               profileImage: profile?.profile,
-            },
-            userId
+            }
           );
         } catch (err) {
           console.error("保存 Strava token 失败:", err);

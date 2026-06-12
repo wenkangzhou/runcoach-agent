@@ -6,7 +6,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { signIn } from "next-auth/react";
 
 interface StravaStatus {
   connected: boolean;
@@ -60,7 +59,7 @@ export default function StravaConnect() {
 
   function handleConnect() {
     setLoading(true);
-    signIn("strava");
+    window.location.href = "/api/strava/auth";
   }
 
   function handleDisconnect() {

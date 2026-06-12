@@ -10,14 +10,12 @@ import { getAllRunActivities } from "@/lib/strava/api";
 import { normalizeActivities, toRunLog } from "@/lib/strava/normalize";
 import { getValidAccessToken, updateLastSync } from "@/lib/strava/store";
 import { saveRuns } from "@/lib/memory/store";
-import { getCurrentUserId } from "@/lib/auth";
 import { loadPlan, savePlan } from "@/lib/training/plan-store";
 import type { DayPlan } from "@/lib/training/plan-types";
 
 export async function POST() {
   try {
-    const userId = await getCurrentUserId();
-    const accessToken = await getValidAccessToken(userId);
+    const accessToken = await getValidAccessToken();
     if (!accessToken) {
       return NextResponse.json(
         { error: "Strava 未连接或 Token 已过期，请重新授权" },
@@ -33,7 +31,7 @@ export async function POST() {
     });
 
     if (activities.length === 0) {
-      await updateLastSync(0, userId);
+      await updateLastSync(0);
       return NextResponse.json({
         success: true,
         message: "最近 30 天没有跑步记录",
@@ -46,7 +44,7 @@ export async function POST() {
     const runLogs = normalized.map(toRunLog);
 
     // 保存到 Redis（覆盖现有 runs）
-    await saveRuns(runLogs, userId);
+    await saveRuns(runLogs);
 
     // 自动匹配训练计划
     let matchedCount = 0;
@@ -93,7 +91,7 @@ export async function POST() {
     }
 
     // 更新同步状态
-    await updateLastSync(normalized.length, userId);
+    await updateLastSync(normalized.length);
 
     return NextResponse.json({
       success: true,
