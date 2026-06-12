@@ -14,25 +14,27 @@ const STORAGE_KEY = "runcoach_chat_history";
 
 export default function Chat() {
   const { data: session } = useSession();
-  const [messages, setMessages] = useState<Message[]>(() => {
-    // 从 localStorage 恢复聊天记录
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        try {
-          return JSON.parse(saved);
-        } catch {
-          // 解析失败，使用默认
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      role: "assistant",
+      content: "🏃 欢迎来到跑蓝 RunCoach！\n\n我是你的 AI 跑步教练，可以帮你：\n• 分析训练状态，给出明日建议\n• 回答跑步知识（心率区间、补给策略、伤病预防）\n• 记录和追踪你的跑步数据\n\n今天跑了多少？感觉怎么样？",
+    },
+  ]);
+
+  // 客户端 mount 后从 localStorage 加载聊天记录
+  useEffect(() => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setMessages(parsed);
         }
+      } catch {
+        // 忽略解析失败
       }
     }
-    return [
-      {
-        role: "assistant",
-        content: "🏃 欢迎来到跑蓝 RunCoach！\n\n我是你的 AI 跑步教练，可以帮你：\n• 分析训练状态，给出明日建议\n• 回答跑步知识（心率区间、补给策略、伤病预防）\n• 记录和追踪你的跑步数据\n\n今天跑了多少？感觉怎么样？",
-      },
-    ];
-  });
+  }, []);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -89,11 +91,6 @@ export default function Chat() {
         };
         const finalMessages = [...newMessages, assistantMsg];
         setMessages(finalMessages);
-
-        // 如果 AI 回复包含训练计划，自动保存
-        if (data.plan) {
-          await savePlanFromChat(data.plan);
-        }
       } else {
         setMessages((prev) => [
           ...prev,
@@ -111,28 +108,6 @@ export default function Chat() {
       setLoading(false);
     }
   };
-
-  // 从 Chat 中保存训练计划
-  async function savePlanFromChat(planData: any) {
-    try {
-      const res = await fetch("/api/plan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          goal: planData.goal || "自定义训练计划",
-          currentWeeklyDistance: planData.currentWeeklyDistance || 30,
-          availableDays: planData.availableDays || ["周二", "周四", "周六", "周日"],
-          availableTimePerDay: planData.availableTimePerDay || 90,
-          useLLM: false,
-        }),
-      });
-      if (res.ok) {
-        console.log("[Chat] 训练计划已自动保存");
-      }
-    } catch (err) {
-      console.error("[Chat] 保存计划失败:", err);
-    }
-  }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {

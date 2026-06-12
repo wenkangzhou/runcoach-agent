@@ -100,8 +100,8 @@ const styles: Record<string, React.CSSProperties> = {
   },
   mainBtn: {
     padding: "8px 16px",
-    background: "var(--accent)",
-    color: "var(--bg-primary)",
+    background: "var(--bg-tertiary)",
+    color: "var(--text-primary)",
     borderRadius: "4px",
     fontSize: "13px",
     fontWeight: "bold",
