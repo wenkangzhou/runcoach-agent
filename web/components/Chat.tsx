@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useSession } from "next-auth/react";
 
 interface Message {
   role: "user" | "assistant";
@@ -9,16 +10,37 @@ interface Message {
   iterations?: number;
 }
 
+const STORAGE_KEY = "runcoach_chat_history";
+
 export default function Chat() {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: "assistant",
-      content: "🏃 欢迎来到跑蓝 RunCoach！\n\n我是你的 AI 跑步教练，可以帮你：\n• 分析训练状态，给出明日建议\n• 回答跑步知识（心率区间、补给策略、伤病预防）\n• 记录和追踪你的跑步数据\n\n今天跑了多少？感觉怎么样？",
-    },
-  ]);
+  const { data: session } = useSession();
+  const [messages, setMessages] = useState<Message[]>(() => {
+    // 从 localStorage 恢复聊天记录
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch {
+          // 解析失败，使用默认
+        }
+      }
+    }
+    return [
+      {
+        role: "assistant",
+        content: "🏃 欢迎来到跑蓝 RunCoach！\n\n我是你的 AI 跑步教练，可以帮你：\n• 分析训练状态，给出明日建议\n• 回答跑步知识（心率区间、补给策略、伤病预防）\n• 记录和追踪你的跑步数据\n\n今天跑了多少？感觉怎么样？",
+      },
+    ];
+  });
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // 保存聊天记录到 localStorage
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+  }, [messages]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -33,15 +55,25 @@ export default function Chat() {
 
     const userMessage = input.trim();
     setInput("");
-    setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
+    const newMessages: Message[] = [...messages, { role: "user", content: userMessage }];
+    setMessages(newMessages);
     setLoading(true);
     console.log("[Chat] 发送消息:", userMessage);
 
     try {
+      // 构建历史消息上下文（最近 10 条）
+      const history = newMessages.slice(-10).map((msg) => ({
+        role: msg.role,
+        content: msg.content,
+      }));
+
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userMessage }),
+        body: JSON.stringify({
+          message: userMessage,
+          history,
+        }),
       });
       console.log("[Chat] API 响应状态:", res.status);
 
@@ -49,15 +81,19 @@ export default function Chat() {
       console.log("[Chat] API 数据:", data);
 
       if (data.success) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            content: data.answer || "未能生成回答。",
-            toolCalls: data.toolCalls || [],
-            iterations: data.iterations,
-          },
-        ]);
+        const assistantMsg: Message = {
+          role: "assistant",
+          content: data.answer || "未能生成回答。",
+          toolCalls: data.toolCalls || [],
+          iterations: data.iterations,
+        };
+        const finalMessages = [...newMessages, assistantMsg];
+        setMessages(finalMessages);
+
+        // 如果 AI 回复包含训练计划，自动保存
+        if (data.plan) {
+          await savePlanFromChat(data.plan);
+        }
       } else {
         setMessages((prev) => [
           ...prev,
@@ -76,6 +112,28 @@ export default function Chat() {
     }
   };
 
+  // 从 Chat 中保存训练计划
+  async function savePlanFromChat(planData: any) {
+    try {
+      const res = await fetch("/api/plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          goal: planData.goal || "自定义训练计划",
+          currentWeeklyDistance: planData.currentWeeklyDistance || 30,
+          availableDays: planData.availableDays || ["周二", "周四", "周六", "周日"],
+          availableTimePerDay: planData.availableTimePerDay || 90,
+          useLLM: false,
+        }),
+      });
+      if (res.ok) {
+        console.log("[Chat] 训练计划已自动保存");
+      }
+    } catch (err) {
+      console.error("[Chat] 保存计划失败:", err);
+    }
+  }
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -83,10 +141,28 @@ export default function Chat() {
     }
   };
 
+  const clearHistory = () => {
+    if (confirm("确定要清空聊天记录吗？")) {
+      const welcome: Message = {
+        role: "assistant",
+        content: "🏃 欢迎来到跑蓝 RunCoach！\n\n我是你的 AI 跑步教练，可以帮你：\n• 分析训练状态，给出明日建议\n• 回答跑步知识（心率区间、补给策略、伤病预防）\n• 记录和追踪你的跑步数据\n\n今天跑了多少？感觉怎么样？",
+      };
+      setMessages([welcome]);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify([welcome]));
+    }
+  };
+
   return (
     <div style={styles.container}>
       {/* 消息列表 - 全屏滚动 */}
       <div style={styles.messages}>
+        {messages.length > 1 && (
+          <div style={styles.clearBtnRow}>
+            <button style={styles.clearBtn} onClick={clearHistory}>
+              🗑️ 清空记录
+            </button>
+          </div>
+        )}
         {messages.map((msg, i) => (
           <div
             key={i}
@@ -166,6 +242,20 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: "column",
     gap: "12px",
     WebkitOverflowScrolling: "touch",
+  },
+  clearBtnRow: {
+    display: "flex",
+    justifyContent: "flex-end",
+    paddingBottom: "4px",
+  },
+  clearBtn: {
+    fontSize: "11px",
+    padding: "4px 10px",
+    background: "transparent",
+    color: "var(--text-secondary)",
+    border: "1px solid var(--border)",
+    borderRadius: "4px",
+    cursor: "pointer",
   },
   message: {
     padding: "12px 16px",

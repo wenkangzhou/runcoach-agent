@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useCallback, useState } from "react";
+import { useRef, useCallback, useState, useEffect } from "react";
 import { toPng } from "html-to-image";
 import type { PosterData } from "@/app/api/share/poster/route";
 
@@ -26,6 +26,20 @@ export default function SharePoster({ data, onClose }: SharePosterProps) {
   const posterRef = useRef<HTMLDivElement>(null);
   const [downloading, setDownloading] = useState(false);
   const [copying, setCopying] = useState(false);
+  const [scale, setScale] = useState(1);
+
+  // 响应式缩放
+  useEffect(() => {
+    const calculateScale = () => {
+      const containerWidth = window.innerWidth - 80; // 减去 padding
+      const targetWidth = 1200;
+      const newScale = Math.min(1, containerWidth / targetWidth);
+      setScale(newScale);
+    };
+    calculateScale();
+    window.addEventListener("resize", calculateScale);
+    return () => window.removeEventListener("resize", calculateScale);
+  }, []);
 
   const handleDownload = useCallback(async () => {
     if (!posterRef.current) return;
@@ -101,7 +115,14 @@ ${data.appUrl}`;
       <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
         {/* 海报预览区域 */}
         <div style={styles.previewArea}>
-          <div ref={posterRef} style={styles.poster}>
+          <div
+            ref={posterRef}
+            style={{
+              ...styles.poster,
+              transform: `scale(${scale})`,
+              height: `${630 * scale}px`,
+            }}
+          >
             {/* 顶部：Logo + 标题 */}
             <div style={styles.header}>
               <div style={styles.logoRow}>
@@ -228,6 +249,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     justifyContent: "center",
     overflow: "auto",
+    maxWidth: "100%",
   },
   poster: {
     width: "1200px",
@@ -241,6 +263,8 @@ const styles: Record<string, React.CSSProperties> = {
     gap: "32px",
     boxSizing: "border-box",
     flexShrink: 0,
+    transformOrigin: "top center",
+    maxWidth: "100%",
   },
   header: {
     display: "flex",

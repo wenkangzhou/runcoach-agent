@@ -30,7 +30,7 @@ import { retrieveDocuments, formatRetrievalContext, shouldRetrieve } from "../ra
 import { initVectorStore } from "../rag/chroma-store.js";
 
 /** 创建初始上下文 */
-export async function createContext(userInput: string, userId: string = "anonymous"): Promise<AgentContext> {
+export async function createContext(userInput: string, userId: string = "anonymous", history?: { role: string; content: string }[]): Promise<AgentContext> {
   // Day 4: 按需检索记忆，而非全量加载
   const memoryContext = await buildMemoryContext(userInput, userId);
 
@@ -55,16 +55,30 @@ ${knowledgeContext}
 3. 优先考虑用户安全和长期目标
 4. 如果用户有伤病信号，建议休息或就医
 5. 如果用户提到新的个人信息（目标、时间、伤病），记住并在后续建议中考虑
-6. 回答知识库相关问题时，基于检索到的文档内容回答，不要编造`,
+6. 回答知识库相关问题时，基于检索到的文档内容回答，不要编造
+7. 保持对话上下文，参考之前的对话内容来回答`,
   };
 
-  const userMessage: Message = {
+  const messages: Message[] = [systemMessage];
+
+  // 添加历史消息（最近 10 条）
+  if (history && history.length > 0) {
+    for (const h of history.slice(-10)) {
+      messages.push({
+        role: h.role as "user" | "assistant" | "system",
+        content: h.content,
+      });
+    }
+  }
+
+  // 当前用户消息
+  messages.push({
     role: "user",
     content: userInput,
-  };
+  });
 
   return {
-    messages: [systemMessage, userMessage],
+    messages,
     memory: await loadMemory(userId),
     iteration: 0,
     maxIterations: 5,
@@ -72,7 +86,7 @@ ${knowledgeContext}
 }
 
 /** 运行 Agent 循环 */
-export async function runAgent(userInput: string, userId: string = "anonymous"): Promise<{
+export async function runAgent(userInput: string, userId: string = "anonymous", history?: { role: string; content: string }[]): Promise<{
   answer: string;
   toolCalls: ToolResult[];
   iterations: number;
@@ -88,12 +102,13 @@ export async function runAgent(userInput: string, userId: string = "anonymous"):
     console.warn("⚠️ 向量数据库初始化失败，将使用关键词检索回退:", err instanceof Error ? err.message : String(err));
   }
 
-  const context = await createContext(userInput, userId);
+  const context = await createContext(userInput, userId, history);
   const toolCalls: ToolResult[] = [];
   const tools = getToolDescriptions();
 
   console.log(`\n🏃 RunCoach Agent 启动`);
   console.log(`用户: "${userInput}"`);
+  console.log(`历史消息: ${history?.length || 0} 条`);
   console.log(`-`.repeat(40));
 
   while (context.iteration < context.maxIterations) {

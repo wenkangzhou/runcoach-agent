@@ -1,6 +1,6 @@
 /**
  * API 路由: /api/chat
- * 接收用户消息，调用 Agent 循环，返回回答
+ * 接收用户消息 + 历史记录，调用 Agent 循环，返回回答
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -10,7 +10,7 @@ import { getCurrentUserId } from "@/lib/auth";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { message } = body;
+    const { message, history } = body;
 
     if (!message || typeof message !== "string") {
       return NextResponse.json(
@@ -19,7 +19,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = await runAgent(message);
+    const userId = await getCurrentUserId();
+    const result = await runAgent(message, userId, history);
 
     return NextResponse.json({
       success: true,
