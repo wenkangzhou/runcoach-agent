@@ -106,7 +106,44 @@ input:focus, textarea:focus {
   );
 }
 
-/* 故障文字动画 */
+:global(.route-tooltip) {
+  background: rgba(24, 24, 27, 0.9) !important;
+  border: 1px solid #3f3f46 !important;
+  border-radius: 4px !important;
+  color: #f4f4f5 !important;
+  font-family: 'Courier New', monospace !important;
+  font-size: 11px !important;
+  padding: 4px 8px !important;
+  box-shadow: none !important;
+}
+:global(.route-tooltip::before) {
+  border-top-color: #3f3f46 !important;
+}
+:global(.leaflet-tooltip-top::before) {
+  border-top-color: #3f3f46 !important;
+}
+:global(.leaflet-tooltip) {
+  background: rgba(24, 24, 27, 0.9) !important;
+  border: 1px solid #3f3f46 !important;
+  color: #f4f4f5 !important;
+  font-family: 'Courier New', monospace !important;
+  font-size: 11px !important;
+  border-radius: 4px !important;
+  padding: 4px 8px !important;
+}
+:global(.leaflet-popup-content-wrapper) {
+  background: #27272a !important;
+  border: 1px solid #3f3f46 !important;
+  border-radius: 4px !important;
+  color: #f4f4f5 !important;
+}
+:global(.leaflet-popup-tip) {
+  background: #27272a !important;
+  border: 1px solid #3f3f46 !important;
+}
+:global(.leaflet-container) {
+  background: #18181b !important;
+}
 @keyframes glitch {
   0%, 100% { transform: translate(0); }
   20% { transform: translate(-2px, 2px); }

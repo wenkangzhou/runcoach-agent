@@ -29,38 +29,29 @@ export default function RouteMap({ clusters }: RouteMapProps) {
 
       if (!isMounted || !mapRef.current) return;
 
-      // 如果地图已初始化，先移除
       if (leafletMapRef.current) {
         leafletMapRef.current.remove();
         leafletMapRef.current = null;
       }
 
-      // 计算地图中心（所有聚类的平均中心）
-      const avgLat = clusters.reduce((s, c) => s + c.centerLat, 0) / clusters.length;
-      const avgLng = clusters.reduce((s, c) => s + c.centerLng, 0) / clusters.length;
-
       const map = L.map(mapRef.current, {
         zoomControl: false,
         attributionControl: false,
-      }).setView([avgLat, avgLng], 13);
+      });
 
       leafletMapRef.current = map;
 
-      // CartoDB Dark Matter 底图（像素风深色）
       L.tileLayer(
         "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-        {
-          maxZoom: 19,
-          subdomains: "abcd",
-        }
+        { maxZoom: 19, subdomains: "abcd" }
       ).addTo(map);
 
-      // 添加聚类标记
       const maxCount = Math.max(...clusters.map((c) => c.count), 1);
+      const bounds = L.latLngBounds([]);
 
       clusters.forEach((cluster) => {
         const intensity = cluster.count / maxCount;
-        const radius = 8 + cluster.count * 4;
+        const radius = 6 + Math.min(cluster.count * 2, 24); // 限制最大半径
         const color = getHeatColor(intensity);
 
         const circle = L.circleMarker([cluster.centerLat, cluster.centerLng], {
@@ -72,7 +63,9 @@ export default function RouteMap({ clusters }: RouteMapProps) {
           fillOpacity: 0.6 + intensity * 0.3,
         }).addTo(map);
 
-        // 弹出信息
+        bounds.extend([cluster.centerLat, cluster.centerLng]);
+
+        // 弹出信息 + 标签
         const popupContent = `
           <div style="font-family: 'Courier New', monospace; min-width: 180px;">
             <div style="font-weight: bold; color: #f97316; margin-bottom: 6px; font-size: 14px;">
@@ -87,11 +80,24 @@ export default function RouteMap({ clusters }: RouteMapProps) {
         `;
 
         circle.bindPopup(popupContent);
+        circle.bindTooltip(`${cluster.name}<br><small>🏃 ${cluster.count}次</small>`, {
+          permanent: true,
+          direction: "top",
+          offset: [0, -radius],
+          className: "route-tooltip",
+        });
 
         circle.on("click", () => {
           setSelectedCluster(cluster);
         });
       });
+
+      // 自动缩放以显示所有标记
+      if (bounds.isValid()) {
+        map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
+      } else {
+        map.setView([clusters[0].centerLat, clusters[0].centerLng], 13);
+      }
 
       setMapLoaded(true);
     };
