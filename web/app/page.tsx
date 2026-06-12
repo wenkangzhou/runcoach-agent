@@ -7,10 +7,21 @@ import ProfileCard from "../components/ProfileCard";
 import RunLogList from "../components/RunLogList";
 import StravaConnect from "../components/StravaConnect";
 
+interface TrainingReminder {
+  hasTraining: boolean;
+  formatted?: string;
+  reminder?: {
+    type?: string;
+    distance?: number;
+    pace?: string;
+  };
+}
+
 export default function Home() {
   const [activeTab, setActiveTab] = useState<"chat" | "dashboard">("chat");
   const [mobileView, setMobileView] = useState<"main" | "sidebar">("main");
   const [isMobile, setIsMobile] = useState(false);
+  const [reminder, setReminder] = useState<TrainingReminder | null>(null);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -19,6 +30,22 @@ export default function Home() {
     checkMobile();
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  useEffect(() => {
+    // 加载今日训练提醒
+    const fetchReminder = async () => {
+      try {
+        const res = await fetch("/api/reminder");
+        const data = await res.json();
+        if (data.success && data.hasTraining) {
+          setReminder(data);
+        }
+      } catch (err) {
+        console.error("获取训练提醒失败:", err);
+      }
+    };
+    fetchReminder();
   }, []);
 
   return (
@@ -37,6 +64,16 @@ export default function Home() {
           <p style={styles.subtitle}>AI 跑步教练 · 像展示作品一样展示你的跑步生涯</p>
         </div>
       </header>
+
+      {/* 今日训练提醒横幅 */}
+      {reminder?.hasTraining && (
+        <div style={styles.reminderBanner}>
+          <span style={styles.reminderIcon}>🏃</span>
+          <span style={styles.reminderText}>
+            今日训练: {reminder.formatted}
+          </span>
+        </div>
+      )}
 
       {/* 主内容区 */}
       <div style={styles.main}>
@@ -197,6 +234,25 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: "12px",
     color: "var(--text-secondary)",
     margin: 0,
+  },
+  reminderBanner: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    padding: "10px 20px",
+    background: "rgba(249, 115, 22, 0.15)",
+    borderBottom: "1px solid rgba(249, 115, 22, 0.3)",
+    color: "#f97316",
+    fontSize: "14px",
+    fontWeight: "bold",
+    fontFamily: "'Courier New', monospace",
+    flexShrink: 0,
+  },
+  reminderIcon: {
+    fontSize: "18px",
+  },
+  reminderText: {
+    flex: 1,
   },
   main: {
     display: "flex",

@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import TrendChart from "./TrendChart";
 import PaceZones from "./PaceZones";
 import StatsCards from "./StatsCards";
+import RouteMap from "../map/RouteMap";
+import type { RouteCluster } from "@/lib/map/cluster";
 
 interface RunLog {
   date: string;
@@ -20,12 +22,16 @@ interface RunLog {
  * - 配速区间分布（饼图）
  * - 最近 7 次训练列表
  * - 总里程/总时长/最佳成绩卡片
+ * - 路线聚类地图
  */
 export default function Dashboard() {
   const [runs, setRuns] = useState<RunLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [period, setPeriod] = useState<"week" | "month">("week");
+  const [activeView, setActiveView] = useState<"stats" | "routes">("stats");
+  const [clusters, setClusters] = useState<RouteCluster[]>([]);
+  const [clustersLoading, setClustersLoading] = useState(false);
 
   const fetchRuns = async () => {
     try {
@@ -45,8 +51,24 @@ export default function Dashboard() {
     }
   };
 
+  const fetchClusters = async () => {
+    try {
+      setClustersLoading(true);
+      const res = await fetch("/api/routes/cluster");
+      const data = await res.json();
+      if (data.success) {
+        setClusters(data.clusters || []);
+      }
+    } catch (err) {
+      console.error("获取路线聚类失败:", err);
+    } finally {
+      setClustersLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchRuns();
+    fetchClusters();
   }, []);
 
   const recentRuns = runs.slice(0, 7);
@@ -63,7 +85,7 @@ export default function Dashboard() {
     <div style={styles.container}>
       <div style={styles.header}>
         <h2 style={styles.title}>📊 训练仪表盘</h2>
-        <button style={styles.refreshBtn} onClick={fetchRuns}>
+        <button style={styles.refreshBtn} onClick={() => { fetchRuns(); fetchClusters(); }}>
           🔄 刷新
         </button>
       </div>
@@ -74,72 +96,107 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* 统计卡片 */}
-      <div style={styles.section}>
-        <StatsCards runs={runs} />
+      {/* 视图切换 */}
+      <div style={styles.viewToggle}>
+        <button
+          style={{
+            ...styles.viewBtn,
+            ...(activeView === "stats" ? styles.viewBtnActive : {}),
+          }}
+          onClick={() => setActiveView("stats")}
+        >
+          📈 数据统计
+        </button>
+        <button
+          style={{
+            ...styles.viewBtn,
+            ...(activeView === "routes" ? styles.viewBtnActive : {}),
+          }}
+          onClick={() => setActiveView("routes")}
+        >
+          🗺️ 路线地图
+        </button>
       </div>
 
-      {/* 趋势图 + 配速区间 */}
-      <div style={styles.row}>
-        <div style={styles.col}>
-          <div style={styles.periodToggle}>
-            <button
-              style={{
-                ...styles.periodBtn,
-                ...(period === "week" ? styles.periodBtnActive : {}),
-              }}
-              onClick={() => setPeriod("week")}
-            >
-              周
-            </button>
-            <button
-              style={{
-                ...styles.periodBtn,
-                ...(period === "month" ? styles.periodBtnActive : {}),
-              }}
-              onClick={() => setPeriod("month")}
-            >
-              月
-            </button>
+      {activeView === "stats" ? (
+        <>
+          {/* 统计卡片 */}
+          <div style={styles.section}>
+            <StatsCards runs={runs} />
           </div>
-          <TrendChart runs={runs} period={period} />
-        </div>
-        <div style={styles.col}>
-          <PaceZones runs={runs} />
-        </div>
-      </div>
 
-      {/* 最近训练列表 */}
-      <div style={styles.section}>
-        <h3 style={styles.sectionTitle}>最近训练</h3>
-        <div style={styles.recentList}>
-          {recentRuns.length === 0 ? (
-            <p style={styles.emptyText}>暂无训练记录</p>
-          ) : (
-            recentRuns.map((run, i) => (
-              <div key={i} style={styles.recentItem}>
-                <div style={styles.recentMain}>
-                  <span style={styles.recentDate}>{run.date}</span>
-                  <span style={styles.recentType}>{getRunTypeEmoji(run)}</span>
-                </div>
-                <div style={styles.recentDetails}>
-                  <span style={styles.recentDistance}>{run.distance}km</span>
-                  {run.pace && run.pace !== "-" && (
-                    <span style={styles.recentPace}>⏱ {run.pace}</span>
-                  )}
-                  {run.hr && (
-                    <span style={styles.recentHr}>❤️ {run.hr}</span>
-                  )}
-                  <span style={styles.recentFeeling}>😊 {run.feeling}</span>
-                </div>
-                {run.notes && (
-                  <p style={styles.recentNotes}>{run.notes}</p>
-                )}
+          {/* 趋势图 + 配速区间 */}
+          <div style={styles.row}>
+            <div style={styles.col}>
+              <div style={styles.periodToggle}>
+                <button
+                  style={{
+                    ...styles.periodBtn,
+                    ...(period === "week" ? styles.periodBtnActive : {}),
+                  }}
+                  onClick={() => setPeriod("week")}
+                >
+                  周
+                </button>
+                <button
+                  style={{
+                    ...styles.periodBtn,
+                    ...(period === "month" ? styles.periodBtnActive : {}),
+                  }}
+                  onClick={() => setPeriod("month")}
+                >
+                  月
+                </button>
               </div>
-            ))
+              <TrendChart runs={runs} period={period} />
+            </div>
+            <div style={styles.col}>
+              <PaceZones runs={runs} />
+            </div>
+          </div>
+
+          {/* 最近训练列表 */}
+          <div style={styles.section}>
+            <h3 style={styles.sectionTitle}>最近训练</h3>
+            <div style={styles.recentList}>
+              {recentRuns.length === 0 ? (
+                <p style={styles.emptyText}>暂无训练记录</p>
+              ) : (
+                recentRuns.map((run, i) => (
+                  <div key={i} style={styles.recentItem}>
+                    <div style={styles.recentMain}>
+                      <span style={styles.recentDate}>{run.date}</span>
+                      <span style={styles.recentType}>{getRunTypeEmoji(run)}</span>
+                    </div>
+                    <div style={styles.recentDetails}>
+                      <span style={styles.recentDistance}>{run.distance}km</span>
+                      {run.pace && run.pace !== "-" && (
+                        <span style={styles.recentPace}>⏱ {run.pace}</span>
+                      )}
+                      {run.hr && (
+                        <span style={styles.recentHr}>❤️ {run.hr}</span>
+                      )}
+                      <span style={styles.recentFeeling}>😊 {run.feeling}</span>
+                    </div>
+                    {run.notes && (
+                      <p style={styles.recentNotes}>{run.notes}</p>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </>
+      ) : (
+        <div style={styles.mapSection}>
+          <h3 style={styles.sectionTitle}>🗺️ 路线聚类</h3>
+          {clustersLoading ? (
+            <div style={styles.loading}>加载路线数据中...</div>
+          ) : (
+            <RouteMap clusters={clusters} />
           )}
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -292,5 +349,32 @@ const styles: Record<string, React.CSSProperties> = {
     textAlign: "center",
     color: "var(--text-secondary)",
     fontSize: "14px",
+  },
+  viewToggle: {
+    display: "flex",
+    gap: "8px",
+    marginBottom: "4px",
+  },
+  viewBtn: {
+    padding: "8px 16px",
+    background: "var(--bg-tertiary)",
+    color: "var(--text-secondary)",
+    borderRadius: "4px",
+    fontSize: "13px",
+    cursor: "pointer",
+    minHeight: "44px",
+    fontWeight: "normal",
+  },
+  viewBtnActive: {
+    background: "var(--accent)",
+    color: "var(--bg-primary)",
+    fontWeight: "bold",
+  },
+  mapSection: {
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    minHeight: "400px",
+    overflow: "hidden",
   },
 };

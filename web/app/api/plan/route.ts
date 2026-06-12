@@ -9,8 +9,9 @@ import { generateTrainingPlan, getPlanSummary } from "@/lib/training/plan-genera
 import { buildPlanSystemPrompt, buildPlanUserPrompt } from "@/lib/training/plan-prompt";
 import type { PlanInput, TrainingPlan } from "@/lib/training/plan-types";
 import { loadMemory } from "@/lib/memory/store";
+import { savePlan } from "@/lib/training/plan-store";
 
-// 内存缓存当前计划（生产环境应使用 Redis）
+// 保留内存缓存以兼容旧代码，但优先使用持久化存储
 let currentPlan: TrainingPlan | null = null;
 
 /**
@@ -84,6 +85,7 @@ export async function POST(request: NextRequest) {
 
     // 缓存当前计划
     currentPlan = plan;
+    await savePlan(plan);
 
     return NextResponse.json({
       success: true,
