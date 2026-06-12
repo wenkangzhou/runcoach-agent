@@ -23,13 +23,15 @@ export const authOptions = {
   callbacks: {
     async signIn({ user, account, profile }: any) {
       // Strava 登录时，自动保存 token 到 Redis 供后续 API 调用
-      if (account?.provider === "strava" && account.access_token) {
+      if (account?.provider === "strava" && account?.access_token) {
         try {
           const athleteId = Number(profile?.id || user?.id);
-          const firstname = profile?.firstname || profile?.name?.split(" ")[0] || "";
-          const lastname = profile?.lastname || profile?.name?.split(" ").slice(1).join(" ") || "";
-          const athleteName = `${firstname} ${lastname}`.trim() || user?.name || "Strava 用户";
-          const profileImage = profile?.profile || profile?.image || user?.image;
+          const name = profile?.name || user?.name || "";
+          const parts = name.split(" ");
+          const firstname = parts[0] || "";
+          const lastname = parts.slice(1).join(" ") || "";
+          const athleteName = `${firstname} ${lastname}`.trim() || "Strava 用户";
+          const profileImage = profile?.image || user?.image;
 
           await saveStravaToken({
             accessToken: account.access_token,
@@ -52,17 +54,15 @@ export const authOptions = {
       }
       return true;
     },
-    async jwt({ token, account, profile }: any) {
+    async jwt({ token, account, profile, user }: any) {
       if (account && profile) {
-        token.sub = String(profile.id || profile.sub);
-        token.provider = account.provider;
+        token.sub = String(profile.id || user?.id || token.sub);
       }
       return token;
     },
     async session({ session, token }: any) {
       if (session.user) {
         session.user.id = token.sub;
-        session.user.provider = token.provider;
       }
       return session;
     },
