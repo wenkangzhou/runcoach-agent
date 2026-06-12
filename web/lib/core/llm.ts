@@ -40,16 +40,16 @@ async function initLLMClient(): Promise<void> {
       openaiClient = new OpenAI({
         apiKey: process.env.KIMI_API_KEY,
         baseURL: "https://api.moonshot.cn/v1",
-        maxRetries: 2, // SDK 自动处理 429 重试
-        timeout: 30000,
+        maxRetries: 3, // SDK 自动处理 429 重试（指数退避）
+        timeout: 60000, // 60 秒超时，给足重试时间
       });
       console.log("🤖 LLM Provider: Kimi (Moonshot AI)");
     } else if (provider === "openai") {
       openaiClient = new OpenAI({
         apiKey: process.env.OPENAI_API_KEY,
         baseURL: process.env.OPENAI_BASE_URL,
-        maxRetries: 2,
-        timeout: 30000,
+        maxRetries: 3,
+        timeout: 60000,
       });
       console.log("🤖 LLM Provider: OpenAI");
     }
@@ -85,19 +85,20 @@ ${t.parameters
     )
     .join("\n---\n");
 
-  return `你是 RunCoach，一个专业的跑步训练助手 Agent。
+  return `你是一位国家级专业跑步教练，精通运动科学和训练周期化理论。你擅长分析训练数据，识别运动员的短板，并提供精准、可执行的训练建议。你的分析风格专业、直接、数据驱动，避免空洞的安慰性建议。
 
 你可以使用以下工具来帮助用户：
 
 ${toolDefs}
 
 重要规则：
-1. 如果用户的问题需要工具才能回答，请调用对应工具。
-2. 如果信息足够直接回答，请直接回答。
-3. 如果用户意图不明确，请提出澄清问题。
-4. 回答要简洁、专业，考虑用户的训练安全和长期目标。
-5. 如果用户有伤病信号，建议休息或就医。
-6. 如果用户提到新的个人信息（目标、时间、伤病），记住并在后续建议中考虑。`;
+1. 如果用户的问题需要工具才能回答，请调用对应工具获取数据。
+2. 分析训练数据时，必须基于具体数字（跑量、配速、心率、爬升），不要泛泛而谈。
+3. 给出建议时，要具体可执行（如"明天跑 8km 轻松跑，配速 5:30-5:45，心率控制在 140 以下"）。
+4. 如果用户有伤病信号（疼痛、持续疲劳），建议休息或就医。
+5. 如果用户提到新的个人信息（目标、时间、伤病），记住并在后续建议中考虑。
+6. 回答知识库相关问题时，基于检索到的文档内容回答，不要编造。
+7. 优先使用中文回答。`;
 }
 
 /** 调用 LLM 获取下一步决策 */
@@ -121,10 +122,10 @@ export async function decideNextAction(
 
 /** 真实 LLM API 调用（Kimi / OpenAI 兼容）
  * 稳定性策略：
- * 1. SDK 自动重试 2 次（指数退避）
- * 2. 主模型失败后备用模型回退
- * 3. 30 秒硬超时
- * 4. 429 时等待 2s/4s 再重试
+ * 1. SDK 自动重试 3 次（指数退避处理 429）
+ * 2. SDK 内置 60 秒超时
+ * 3. 主模型失败后备用模型回退
+ * 4. 相同请求 5 分钟内缓存
  */
 async function callRealLLM(
   messages: Message[],
@@ -144,48 +145,31 @@ async function callRealLLM(
     const model = models[modelIndex];
     const isFallback = modelIndex > 0;
 
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      try {
-        if (isFallback) {
-          console.log(`🔄 尝试备用模型: ${model} (第${attempt}次)`);
-        } else {
-          console.log(`🤖 调用 ${provider} API: ${model} (第${attempt}次)`);
-        }
-
-        const result = await callLLMOnce(messages, tools, model);
-        return result;
-      } catch (err) {
-        const error = err instanceof Error ? err.message : String(err);
-        const is429 = error.includes("429") || error.includes("overloaded") || error.includes("rate limit");
-        const isTimeout = error.includes("timeout") || error.includes("abort");
-
-        if (is429 && attempt < 3) {
-          const delay = attempt * 2000; // 2s, 4s
-          console.log(`⏳ ${provider} 429，等待 ${delay}ms 后重试...`);
-          await sleep(delay);
-          continue;
-        }
-
-        if (isTimeout && attempt < 3) {
-          console.log(`⏳ ${provider} 超时，立即重试...`);
-          continue;
-        }
-
-        // 当前模型所有尝试失败，尝试下一个备用模型
-        if (modelIndex < models.length - 1) {
-          console.log(`❌ ${model} 失败，切换到备用模型...`);
-          break; // 跳出内层循环，进入下一个模型
-        }
-
-        // 所有模型都失败
-        console.error(`❌ ${provider} 全部模型失败:`, error);
-        console.log("🔄 回退到模拟 LLM...");
-        return callMockLLM(messages, tools);
+    try {
+      if (isFallback) {
+        console.log(`🔄 尝试备用模型: ${model}`);
+      } else {
+        console.log(`🤖 调用 ${provider} API: ${model}`);
       }
+
+      const result = await callLLMOnce(messages, tools, model);
+      return result;
+    } catch (err) {
+      const error = err instanceof Error ? err.message : String(err);
+
+      // 当前模型失败，尝试下一个备用模型
+      if (modelIndex < models.length - 1) {
+        console.log(`❌ ${model} 失败: ${error.slice(0, 100)}，切换备用模型...`);
+        continue;
+      }
+
+      // 所有模型都失败
+      console.error(`❌ ${provider} 全部模型失败:`, error);
+      console.log("🔄 回退到模拟 LLM...");
+      return callMockLLM(messages, tools);
     }
   }
 
-  // 理论上不会到达这里
   return callMockLLM(messages, tools);
 }
 
@@ -240,22 +224,18 @@ async function callLLMOnce(
     },
   }));
 
-  const completion = await Promise.race([
-    openaiClient.chat.completions.create({
-      model,
-      temperature: 0.3,
-      messages: [
-        { role: "system", content: buildSystemPrompt(tools) },
-        ...apiMessages,
-      ],
-      tools: apiTools,
-      tool_choice: "auto",
-      ...(model === "kimi-k2.5" ? { thinking: { type: "disabled" } } : {}),
-    }),
-    new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("LLM API 调用超时 (30秒)")), 30000)
-    ),
-  ]);
+  // 使用 SDK 内置超时和重试，不再用 Promise.race 打断
+  const completion = await openaiClient.chat.completions.create({
+    model,
+    temperature: 0.3,
+    messages: [
+      { role: "system", content: buildSystemPrompt(tools) },
+      ...apiMessages,
+    ],
+    tools: apiTools,
+    tool_choice: "auto",
+    ...(model === "kimi-k2.5" ? { thinking: { type: "disabled" } } : {}),
+  });
 
   const response = completion.choices[0].message;
 
@@ -274,11 +254,6 @@ async function callLLMOnce(
 
   // 直接回答
   return { type: "answer", content: response.content || "" };
-}
-
-/** 延迟工具 */
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /** 模拟 LLM（基于关键词的简单规则） */
