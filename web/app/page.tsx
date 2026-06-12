@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSession, signIn, signOut } from "next-auth/react";
 import Chat from "../components/Chat";
 import Dashboard from "../components/dashboard/Dashboard";
 import ProfileCard from "../components/ProfileCard";
@@ -18,6 +19,7 @@ interface TrainingReminder {
 }
 
 export default function Home() {
+  const { data: session, status } = useSession();
   const [activeTab, setActiveTab] = useState<"chat" | "dashboard">("chat");
   const [mobileView, setMobileView] = useState<"main" | "sidebar">("main");
   const [isMobile, setIsMobile] = useState(false);
@@ -48,6 +50,8 @@ export default function Home() {
     fetchReminder();
   }, []);
 
+  const isLoggedIn = status === "authenticated" && session?.user;
+
   return (
     <div style={styles.page}>
       {/* CRT 扫描线效果 */}
@@ -61,7 +65,34 @@ export default function Home() {
             <span style={styles.titleText}>跑蓝</span>
             <span style={styles.titleSub}>RunCoach</span>
           </h1>
-          <p style={styles.subtitle}>AI 跑步教练 · 像展示作品一样展示你的跑步生涯</p>
+          <div style={styles.headerRight}>
+            <p style={styles.subtitle}>AI 跑步教练 · 像展示作品一样展示你的跑步生涯</p>
+            {/* 登录状态 */}
+            <div style={styles.authArea}>
+              {isLoggedIn ? (
+                <div style={styles.userInfo}>
+                  {session.user?.image && (
+                    <img
+                      src={session.user.image}
+                      alt="avatar"
+                      style={styles.avatar}
+                    />
+                  )}
+                  <span style={styles.userName}>{session.user?.name || "用户"}</span>
+                  <button style={styles.authBtn} onClick={() => signOut()}>
+                    登出
+                  </button>
+                </div>
+              ) : (
+                <button
+                  style={styles.stravaLoginBtn}
+                  onClick={() => signIn("strava")}
+                >
+                  🏔️ 用 Strava 登录
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       </header>
 
@@ -210,6 +241,12 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     justifyContent: "space-between",
   },
+  headerRight: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "flex-end",
+    gap: "4px",
+  },
   title: {
     display: "flex",
     alignItems: "center",
@@ -234,6 +271,46 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: "12px",
     color: "var(--text-secondary)",
     margin: 0,
+  },
+  authArea: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+  },
+  userInfo: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+  },
+  avatar: {
+    width: "28px",
+    height: "28px",
+    borderRadius: "50%",
+    objectFit: "cover",
+  },
+  userName: {
+    fontSize: "12px",
+    color: "var(--text-primary)",
+    fontWeight: 500,
+  },
+  authBtn: {
+    fontSize: "12px",
+    padding: "4px 10px",
+    background: "var(--bg-tertiary)",
+    color: "var(--text-secondary)",
+    borderRadius: "4px",
+    border: "1px solid var(--border)",
+    cursor: "pointer",
+  },
+  stravaLoginBtn: {
+    fontSize: "12px",
+    padding: "5px 12px",
+    background: "#fc4c02",
+    color: "#fff",
+    borderRadius: "4px",
+    border: "none",
+    cursor: "pointer",
+    fontWeight: "bold",
   },
   reminderBanner: {
     display: "flex",

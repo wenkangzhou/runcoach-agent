@@ -6,10 +6,12 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { loadMemory, updateProfile } from "@/lib/memory/store";
+import { getCurrentUserId } from "@/lib/auth";
 
 export async function GET() {
   try {
-    const memory = await loadMemory();
+    const userId = await getCurrentUserId();
+    const memory = await loadMemory(userId);
     return NextResponse.json({
       success: true,
       profile: memory.profile,
@@ -35,7 +37,8 @@ export async function POST(request: NextRequest) {
     if (preferredPace !== undefined) profile.preferredPace = preferredPace;
     if (experience !== undefined) profile.experience = experience;
 
-    await updateProfile(profile);
+    const userId = await getCurrentUserId();
+    await updateProfile(profile, userId);
 
     return NextResponse.json({
       success: true,

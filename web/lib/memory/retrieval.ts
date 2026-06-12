@@ -92,7 +92,7 @@ export function getRetrievalConfig(type: QueryType): RetrievalConfig {
 }
 
 /** 检索记忆并格式化 */
-export async function retrieveMemory(question: string): Promise<{
+export async function retrieveMemory(question: string, userId: string = "anonymous"): Promise<{
   profileText: string;
   runsText: string;
   summaryText: string;
@@ -100,7 +100,7 @@ export async function retrieveMemory(question: string): Promise<{
 }> {
   const queryType = classifyQuery(question);
   const config = getRetrievalConfig(queryType);
-  const memory = await loadMemory();
+  const memory = await loadMemory(userId);
 
   // 1. 用户画像
   const profileText = config.includeProfile
@@ -125,11 +125,11 @@ export async function retrieveMemory(question: string): Promise<{
   const runsText = relevantRuns.length
     ? `【最近训练 (${config.lookbackDays}天内)】
 ${relevantRuns
-  .map(
-    (r) =>
-      `- ${r.date}: ${r.distance}km, 配速${r.pace}, 心率${r.hr || "-"}, 感受: ${r.feeling}${r.notes ? ` (${r.notes})` : ""}`
-  )
-  .join("\n")}`
+      .map(
+        (r) =>
+          `- ${r.date}: ${r.distance}km, 配速${r.pace}, 心率${r.hr || "-"}, 感受: ${r.feeling}${r.notes ? ` (${r.notes})` : ""}`
+      )
+      .join("\n")}`
     : "【最近训练】\n无记录";
 
   // 3. 摘要
@@ -146,8 +146,8 @@ ${relevantRuns
 }
 
 /** 构建完整上下文文本 */
-export async function buildMemoryContext(question: string): Promise<string> {
-  const { profileText, runsText, summaryText } = await retrieveMemory(question);
+export async function buildMemoryContext(question: string, userId: string = "anonymous"): Promise<string> {
+  const { profileText, runsText, summaryText } = await retrieveMemory(question, userId);
 
   const sections = [profileText, summaryText, runsText].filter(Boolean);
   return sections.join("\n\n");

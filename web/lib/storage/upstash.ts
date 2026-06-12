@@ -14,8 +14,10 @@ import type { UserProfile, RunLog } from "../core/types.js";
 
 const redis = Redis.fromEnv();
 
-const KEY_PROFILE = "runcoach:profile";
-const KEY_RUNS = "runcoach:runs";
+/** 生成用户隔离的 Redis key */
+export function getUserKey(userId: string, suffix: string): string {
+  return `runcoach:user:${userId}:${suffix}`;
+}
 
 /** 检查 Redis 是否配置 */
 export function isRedisConfigured(): boolean {
@@ -23,29 +25,29 @@ export function isRedisConfigured(): boolean {
 }
 
 /** 保存用户画像 */
-export async function saveProfileRedis(profile: UserProfile): Promise<void> {
-  await redis.set(KEY_PROFILE, profile);
+export async function saveProfileRedis(profile: UserProfile, userId: string = "anonymous"): Promise<void> {
+  await redis.set(getUserKey(userId, "profile"), profile);
 }
 
 /** 加载用户画像 */
-export async function loadProfileRedis(): Promise<UserProfile | null> {
-  return await redis.get<UserProfile>(KEY_PROFILE);
+export async function loadProfileRedis(userId: string = "anonymous"): Promise<UserProfile | null> {
+  return await redis.get<UserProfile>(getUserKey(userId, "profile"));
 }
 
 /** 保存训练记录 */
-export async function saveRunsRedis(runs: RunLog[]): Promise<void> {
-  await redis.set(KEY_RUNS, runs);
+export async function saveRunsRedis(runs: RunLog[], userId: string = "anonymous"): Promise<void> {
+  await redis.set(getUserKey(userId, "runs"), runs);
 }
 
 /** 加载训练记录 */
-export async function loadRunsRedis(): Promise<RunLog[] | null> {
-  return await redis.get<RunLog[]>(KEY_RUNS);
+export async function loadRunsRedis(userId: string = "anonymous"): Promise<RunLog[] | null> {
+  return await redis.get<RunLog[]>(getUserKey(userId, "runs"));
 }
 
 /** 添加单条训练记录 */
-export async function addRunRedis(run: RunLog): Promise<void> {
-  const runs = (await loadRunsRedis()) || [];
+export async function addRunRedis(run: RunLog, userId: string = "anonymous"): Promise<void> {
+  const runs = (await loadRunsRedis(userId)) || [];
   runs.unshift(run);
   if (runs.length > 20) runs.length = 20;
-  await saveRunsRedis(runs);
+  await saveRunsRedis(runs, userId);
 }

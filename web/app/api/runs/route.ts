@@ -6,10 +6,12 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { loadMemory, addRun } from "@/lib/memory/store";
+import { getCurrentUserId } from "@/lib/auth";
 
 export async function GET() {
   try {
-    const memory = await loadMemory();
+    const userId = await getCurrentUserId();
+    const memory = await loadMemory(userId);
     return NextResponse.json({
       success: true,
       runs: memory.recentRuns,
@@ -43,7 +45,8 @@ export async function POST(request: NextRequest) {
       notes: notes ? String(notes) : undefined,
     };
 
-    await addRun(run);
+    const userId = await getCurrentUserId();
+    await addRun(run, userId);
 
     return NextResponse.json({
       success: true,

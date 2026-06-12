@@ -11,6 +11,25 @@ export interface DayPlan {
   pace: string;           // 目标配速，如 "5:30-5:45"
   duration: string;       // 预计时长，如 "45min"
   notes?: string;         // 备注说明
+  // 新增：执行追踪字段
+  status?: "scheduled" | "completed" | "skipped" | "partial"; // 默认 scheduled
+  actualDistance?: number;      // 实际跑的距离
+  actualPace?: string;          // 实际配速
+  actualDuration?: string;      // 实际时长
+  actualHr?: number;            // 实际平均心率
+  completedAt?: string;         // ISO 完成时间
+  feeling?: string;             // 体感描述
+}
+
+/** 周统计 */
+export interface WeekStats {
+  weekNumber: number;
+  plannedDistance: number;
+  actualDistance: number;
+  completionRate: number;       // 0-100
+  completedDays: number;
+  skippedDays: number;
+  totalDays: number;
 }
 
 /** 跑步训练类型 */

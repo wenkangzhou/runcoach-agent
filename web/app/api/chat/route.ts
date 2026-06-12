@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { runAgent } from "@/lib/core/agent";
+import { getCurrentUserId } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
   try {

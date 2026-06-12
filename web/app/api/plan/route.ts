@@ -9,10 +9,11 @@ import { generateTrainingPlan, getPlanSummary } from "@/lib/training/plan-genera
 import { buildPlanSystemPrompt, buildPlanUserPrompt } from "@/lib/training/plan-prompt";
 import type { PlanInput, TrainingPlan } from "@/lib/training/plan-types";
 import { loadMemory } from "@/lib/memory/store";
-import { savePlan } from "@/lib/training/plan-store";
+import { savePlan, loadPlan } from "@/lib/training/plan-store";
+import { getCurrentUserId } from "@/lib/auth";
 
 // 保留内存缓存以兼容旧代码，但优先使用持久化存储
-let currentPlan: TrainingPlan | null = null;
+const planCache = new Map<string, TrainingPlan | null>();
 
 /**
  * POST /api/plan
@@ -46,8 +47,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const userId = await getCurrentUserId();
+
     // 加载用户记忆数据
-    const memory = await loadMemory();
+    const memory = await loadMemory(userId);
 
     // 构建输入
     const input: PlanInput = {
@@ -84,8 +87,8 @@ export async function POST(request: NextRequest) {
     }
 
     // 缓存当前计划
-    currentPlan = plan;
-    await savePlan(plan);
+    planCache.set(userId, plan);
+    await savePlan(plan, userId);
 
     return NextResponse.json({
       success: true,
@@ -109,17 +112,28 @@ export async function POST(request: NextRequest) {
  */
 export async function GET() {
   try {
-    if (!currentPlan) {
-      return NextResponse.json(
-        { success: true, plan: null, message: "暂无活跃计划" },
-        { status: 200 }
-      );
+    const userId = await getCurrentUserId();
+    const cached = planCache.get(userId);
+    if (!cached) {
+      const plan = await loadPlan(userId);
+      if (!plan) {
+        return NextResponse.json(
+          { success: true, plan: null, message: "暂无活跃计划" },
+          { status: 200 }
+        );
+      }
+      planCache.set(userId, plan);
+      return NextResponse.json({
+        success: true,
+        plan,
+        summary: getPlanSummary(plan),
+      });
     }
 
     return NextResponse.json({
       success: true,
-      plan: currentPlan,
-      summary: getPlanSummary(currentPlan),
+      plan: cached,
+      summary: getPlanSummary(cached),
     });
   } catch (error) {
     console.error("Get Plan API 错误:", error);

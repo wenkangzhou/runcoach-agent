@@ -30,9 +30,9 @@ import { retrieveDocuments, formatRetrievalContext, shouldRetrieve } from "../ra
 import { initVectorStore } from "../rag/chroma-store.js";
 
 /** 创建初始上下文 */
-export async function createContext(userInput: string): Promise<AgentContext> {
+export async function createContext(userInput: string, userId: string = "anonymous"): Promise<AgentContext> {
   // Day 4: 按需检索记忆，而非全量加载
-  const memoryContext = await buildMemoryContext(userInput);
+  const memoryContext = await buildMemoryContext(userInput, userId);
 
   // Day 5: RAG 知识库检索（向量检索 + 关键词回退）
   let knowledgeContext = "";
@@ -65,14 +65,14 @@ ${knowledgeContext}
 
   return {
     messages: [systemMessage, userMessage],
-    memory: await loadMemory(),
+    memory: await loadMemory(userId),
     iteration: 0,
     maxIterations: 5,
   };
 }
 
 /** 运行 Agent 循环 */
-export async function runAgent(userInput: string): Promise<{
+export async function runAgent(userInput: string, userId: string = "anonymous"): Promise<{
   answer: string;
   toolCalls: ToolResult[];
   iterations: number;
@@ -88,7 +88,7 @@ export async function runAgent(userInput: string): Promise<{
     console.warn("⚠️ 向量数据库初始化失败，将使用关键词检索回退:", err instanceof Error ? err.message : String(err));
   }
 
-  const context = await createContext(userInput);
+  const context = await createContext(userInput, userId);
   const toolCalls: ToolResult[] = [];
   const tools = getToolDescriptions();
 
@@ -105,13 +105,13 @@ export async function runAgent(userInput: string): Promise<{
     console.log(`🧠 LLM 决策: ${action.type}`);
 
     if (action.type === "clarify") {
-      return await finalize(userInput, `需要澄清: ${action.question}`, toolCalls, context.iteration);
+      return await finalize(userInput, `需要澄清: ${action.question}`, toolCalls, context.iteration, userId);
     }
 
     if (action.type === "answer") {
       console.log(`✅ 直接回答`);
       const answer = formatAnswer(action.content, toolCalls);
-      return await finalize(userInput, answer, toolCalls, context.iteration);
+      return await finalize(userInput, answer, toolCalls, context.iteration, userId);
     }
 
     if (action.type === "tool") {
@@ -157,7 +157,7 @@ export async function runAgent(userInput: string): Promise<{
 
   // 达到最大迭代次数，强制返回
   console.log(`⚠️ 达到最大迭代次数`);
-  return await finalize(userInput, "Agent 思考次数过多，请简化问题或稍后重试。", toolCalls, context.iteration);
+  return await finalize(userInput, "Agent 思考次数过多，请简化问题或稍后重试。", toolCalls, context.iteration, userId);
 }
 
 /** 格式化最终回答 */
@@ -189,7 +189,8 @@ async function finalize(
   userInput: string,
   answer: string,
   toolCalls: ToolResult[],
-  iterations: number
+  iterations: number,
+  userId: string = "anonymous"
 ): Promise<{
   answer: string;
   toolCalls: ToolResult[];
@@ -210,7 +211,7 @@ async function finalize(
       feeling: String(extracted.feeling || "-"),
       notes: userInput.slice(0, 100),
     };
-    await addRun(run);
+    await addRun(run, userId);
     memoryUpdate += `\n📝 已保存训练记录: ${run.distance}km @ ${run.pace}`;
   }
 

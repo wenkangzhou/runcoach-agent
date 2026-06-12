@@ -9,11 +9,12 @@ import { loadMemory } from "@/lib/memory/store";
 import { parseRunStructure } from "@/lib/analysis/structure";
 import { classifyRun } from "@/lib/analysis/classify";
 import { interpretRun } from "@/lib/analysis/interpret";
+import { getCurrentUserId } from "@/lib/auth";
 import type { NormalizedRun } from "@/lib/strava/types";
 import type { RunAnalysis } from "@/lib/analysis/types";
 
 // 内存缓存最近分析历史（生产环境应使用 Redis）
-const analysisHistory: Array<{ id: string; date: string; analysis: RunAnalysis }> = [];
+const analysisHistoryMap = new Map<string, Array<{ id: string; date: string; analysis: RunAnalysis }>>();
 const MAX_HISTORY = 20;
 
 /** 生成简单 ID */
@@ -49,6 +50,8 @@ export async function POST(request: NextRequest) {
     let targetRun: NormalizedRun | null = null;
     let allRuns: NormalizedRun[] = [];
 
+    const userId = await getCurrentUserId();
+
     // 如果提供了 run 数据，直接使用
     if (run && typeof run === "object") {
       targetRun = run as NormalizedRun;
@@ -56,7 +59,7 @@ export async function POST(request: NextRequest) {
 
     // 否则尝试从 memory 查找（通过 runId 或最近记录）
     if (!targetRun) {
-      const memory = await loadMemory();
+      const memory = await loadMemory(userId);
       allRuns = memory.recentRuns.map(runLogToNormalized);
 
       if (runId) {
@@ -69,7 +72,7 @@ export async function POST(request: NextRequest) {
       }
     } else {
       // 也需要加载近期记录用于对比
-      const memory = await loadMemory();
+      const memory = await loadMemory(userId);
       allRuns = memory.recentRuns.map(runLogToNormalized);
     }
 
@@ -87,8 +90,10 @@ export async function POST(request: NextRequest) {
 
     // 保存到历史
     const record = { id: generateId(), date: targetRun.date, analysis };
-    analysisHistory.unshift(record);
-    if (analysisHistory.length > MAX_HISTORY) analysisHistory.length = MAX_HISTORY;
+    const history = analysisHistoryMap.get(userId) || [];
+    history.unshift(record);
+    if (history.length > MAX_HISTORY) history.length = MAX_HISTORY;
+    analysisHistoryMap.set(userId, history);
 
     return NextResponse.json({
       success: true,
@@ -123,9 +128,11 @@ export async function POST(request: NextRequest) {
 
 export async function GET() {
   try {
+    const userId = await getCurrentUserId();
+    const history = analysisHistoryMap.get(userId) || [];
     return NextResponse.json({
       success: true,
-      history: analysisHistory.slice(0, 10),
+      history: history.slice(0, 10),
     });
   } catch (error) {
     return NextResponse.json(

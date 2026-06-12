@@ -6,10 +6,12 @@
 import { NextResponse } from "next/server";
 import { loadMemory } from "@/lib/memory/store";
 import { clusterRoutes, getClusterSummary } from "@/lib/map/cluster";
+import { getCurrentUserId } from "@/lib/auth";
 
 export async function GET() {
   try {
-    const memory = await loadMemory();
+    const userId = await getCurrentUserId();
+    const memory = await loadMemory(userId);
     const runs = memory.recentRuns || [];
 
     // 将 RunLog 转换为带 route 的 NormalizedRun 格式

@@ -6,10 +6,12 @@
 import { NextResponse } from "next/server";
 import { getTodayTraining, formatReminder } from "@/lib/training/reminder";
 import { loadPlan } from "@/lib/training/plan-store";
+import { getCurrentUserId } from "@/lib/auth";
 
 export async function GET() {
   try {
-    const plan = await loadPlan();
+    const userId = await getCurrentUserId();
+    const plan = await loadPlan(userId);
     const reminder = getTodayTraining(plan);
 
     if (!reminder.hasTraining) {

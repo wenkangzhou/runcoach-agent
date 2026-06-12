@@ -4,8 +4,13 @@ import { useState, useEffect } from "react";
 import TrendChart from "./TrendChart";
 import PaceZones from "./PaceZones";
 import StatsCards from "./StatsCards";
+import ShareButton from "../ShareButton";
+import ExportButton from "../ExportButton";
 import RouteMap from "../map/RouteMap";
+import TrainingCalendar from "../TrainingCalendar";
+import PlanTracker from "../PlanTracker";
 import type { RouteCluster } from "@/lib/map/cluster";
+import type { TrainingPlan } from "@/lib/training/plan-types";
 
 interface RunLog {
   date: string;
@@ -23,15 +28,17 @@ interface RunLog {
  * - 最近 7 次训练列表
  * - 总里程/总时长/最佳成绩卡片
  * - 路线聚类地图
+ * - 训练计划日历 + 追踪
  */
 export default function Dashboard() {
   const [runs, setRuns] = useState<RunLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [period, setPeriod] = useState<"week" | "month">("week");
-  const [activeView, setActiveView] = useState<"stats" | "routes">("stats");
+  const [activeView, setActiveView] = useState<"stats" | "routes" | "plan">("stats");
   const [clusters, setClusters] = useState<RouteCluster[]>([]);
   const [clustersLoading, setClustersLoading] = useState(false);
+  const [plan, setPlan] = useState<TrainingPlan | null>(null);
 
   const fetchRuns = async () => {
     try {
@@ -66,9 +73,25 @@ export default function Dashboard() {
     }
   };
 
+  const fetchPlan = async () => {
+    try {
+      const res = await fetch("/api/plan");
+      const data = await res.json();
+      if (data.success && data.plan) {
+        setPlan(data.plan);
+      } else {
+        setPlan(null);
+      }
+    } catch (err) {
+      console.error("获取计划失败:", err);
+      setPlan(null);
+    }
+  };
+
   useEffect(() => {
     fetchRuns();
     fetchClusters();
+    fetchPlan();
   }, []);
 
   const recentRuns = runs.slice(0, 7);
@@ -85,7 +108,7 @@ export default function Dashboard() {
     <div style={styles.container}>
       <div style={styles.header}>
         <h2 style={styles.title}>📊 训练仪表盘</h2>
-        <button style={styles.refreshBtn} onClick={() => { fetchRuns(); fetchClusters(); }}>
+        <button style={styles.refreshBtn} onClick={() => { fetchRuns(); fetchClusters(); fetchPlan(); }}>
           🔄 刷新
         </button>
       </div>
@@ -116,6 +139,15 @@ export default function Dashboard() {
         >
           🗺️ 路线地图
         </button>
+        <button
+          style={{
+            ...styles.viewBtn,
+            ...(activeView === "plan" ? styles.viewBtnActive : {}),
+          }}
+          onClick={() => setActiveView("plan")}
+        >
+          📅 训练计划
+        </button>
       </div>
 
       {activeView === "stats" ? (
@@ -123,6 +155,12 @@ export default function Dashboard() {
           {/* 统计卡片 */}
           <div style={styles.section}>
             <StatsCards runs={runs} />
+          </div>
+
+          {/* 分享 + 导出按钮 */}
+          <div style={styles.actionBar}>
+            <ShareButton />
+            <ExportButton />
           </div>
 
           {/* 趋势图 + 配速区间 */}
@@ -187,13 +225,28 @@ export default function Dashboard() {
             </div>
           </div>
         </>
-      ) : (
+      ) : activeView === "routes" ? (
         <div style={styles.mapSection}>
           <h3 style={styles.sectionTitle}>🗺️ 路线聚类</h3>
           {clustersLoading ? (
             <div style={styles.loading}>加载路线数据中...</div>
           ) : (
             <RouteMap clusters={clusters} />
+          )}
+        </div>
+      ) : (
+        <div style={styles.planSection}>
+          {plan ? (
+            <>
+              <PlanTracker plan={plan} />
+              <div style={styles.divider} />
+              <TrainingCalendar plan={plan} onUpdate={fetchPlan} />
+            </>
+          ) : (
+            <div style={styles.emptyPlan}>
+              <p style={styles.emptyText}>暂无训练计划</p>
+              <p style={styles.emptySub}>在教练对话中输入 "生成训练计划" 来创建</p>
+            </div>
           )}
         </div>
       )}
@@ -344,6 +397,12 @@ const styles: Record<string, React.CSSProperties> = {
     textAlign: "center",
     padding: "20px",
   },
+  emptySub: {
+    color: "var(--text-secondary)",
+    fontSize: "12px",
+    textAlign: "center",
+    opacity: 0.7,
+  },
   loading: {
     padding: "40px",
     textAlign: "center",
@@ -376,5 +435,31 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: "column",
     minHeight: "400px",
     overflow: "hidden",
+  },
+  planSection: {
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    gap: "16px",
+    overflowY: "auto",
+  },
+  divider: {
+    height: "1px",
+    background: "var(--border)",
+    margin: "0 4px",
+  },
+  emptyPlan: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "40px",
+    gap: "8px",
+  },
+  actionBar: {
+    display: "flex",
+    gap: "12px",
+    justifyContent: "flex-end",
+    padding: "0 4px",
   },
 };

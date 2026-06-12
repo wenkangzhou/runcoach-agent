@@ -20,8 +20,14 @@ import {
 const IS_VERCEL = !!process.env.VERCEL;
 
 const MEMORY_DIR = join(process.cwd(), "data");
-const PROFILE_PATH = join(MEMORY_DIR, "profile.json");
-const RUNS_PATH = join(MEMORY_DIR, "recent_runs.json");
+
+function getProfilePath(userId: string): string {
+  return join(MEMORY_DIR, `profile-${userId}.json`);
+}
+
+function getRunsPath(userId: string): string {
+  return join(MEMORY_DIR, `recent_runs-${userId}.json`);
+}
 
 /** 默认用户画像 */
 const DEFAULT_PROFILE: UserProfile = {
@@ -51,44 +57,46 @@ const DEFAULT_RUNS: RunLog[] = [
   },
 ];
 
-// ========== 内存缓存（用于减少 Redis 调用） ==========
+// ========== 内存缓存（按用户隔离，用于减少 Redis 调用） ==========
 
-let cacheProfile: UserProfile | null = null;
-let cacheRuns: RunLog[] | null = null;
-let cacheLoaded = false;
+const cacheProfileMap = new Map<string, UserProfile | null>();
+const cacheRunsMap = new Map<string, RunLog[] | null>();
+const cacheLoadedSet = new Set<string>();
 
-async function initCache(): Promise<void> {
-  if (cacheLoaded) return;
-  cacheLoaded = true;
+async function initCache(userId: string): Promise<void> {
+  if (cacheLoadedSet.has(userId)) return;
+  cacheLoadedSet.add(userId);
 
   if (isRedisConfigured()) {
-    const profile = await loadProfileRedis();
-    const runs = await loadRunsRedis();
-    cacheProfile = profile || { ...DEFAULT_PROFILE };
-    cacheRuns = runs || DEFAULT_RUNS.map((r) => ({ ...r }));
+    const profile = await loadProfileRedis(userId);
+    const runs = await loadRunsRedis(userId);
+    cacheProfileMap.set(userId, profile || { ...DEFAULT_PROFILE });
+    cacheRunsMap.set(userId, runs || DEFAULT_RUNS.map((r) => ({ ...r })));
     return;
   }
 
   if (IS_VERCEL) {
-    cacheProfile = { ...DEFAULT_PROFILE };
-    cacheRuns = DEFAULT_RUNS.map((r) => ({ ...r }));
+    cacheProfileMap.set(userId, { ...DEFAULT_PROFILE });
+    cacheRunsMap.set(userId, DEFAULT_RUNS.map((r) => ({ ...r })));
     return;
   }
 
   // 本地开发: 从文件加载
-  initFileStorage();
-  cacheProfile = loadJson<UserProfile>(PROFILE_PATH);
-  cacheRuns = loadJson<RunLog[]>(RUNS_PATH);
+  initFileStorage(userId);
+  cacheProfileMap.set(userId, loadJson<UserProfile>(getProfilePath(userId)));
+  cacheRunsMap.set(userId, loadJson<RunLog[]>(getRunsPath(userId)));
 }
 
 // ========== 文件系统存储 ==========
 
-function initFileStorage(): void {
-  if (!existsSync(PROFILE_PATH)) {
-    saveJson(PROFILE_PATH, DEFAULT_PROFILE);
+function initFileStorage(userId: string): void {
+  const profilePath = getProfilePath(userId);
+  const runsPath = getRunsPath(userId);
+  if (!existsSync(profilePath)) {
+    saveJson(profilePath, DEFAULT_PROFILE);
   }
-  if (!existsSync(RUNS_PATH)) {
-    saveJson(RUNS_PATH, DEFAULT_RUNS);
+  if (!existsSync(runsPath)) {
+    saveJson(runsPath, DEFAULT_RUNS);
   }
 }
 
@@ -103,71 +111,71 @@ function saveJson<T>(path: string, data: T): void {
 // ========== 统一接口（全部 async） ==========
 
 /** 加载用户画像 */
-export async function loadProfile(): Promise<UserProfile> {
-  await initCache();
-  return cacheProfile!;
+export async function loadProfile(userId: string = "anonymous"): Promise<UserProfile> {
+  await initCache(userId);
+  return cacheProfileMap.get(userId)!;
 }
 
 /** 保存用户画像 */
-export async function saveProfile(profile: UserProfile): Promise<void> {
-  cacheProfile = profile;
+export async function saveProfile(profile: UserProfile, userId: string = "anonymous"): Promise<void> {
+  cacheProfileMap.set(userId, profile);
   if (isRedisConfigured()) {
-    await saveProfileRedis(profile);
+    await saveProfileRedis(profile, userId);
     return;
   }
   if (!IS_VERCEL) {
-    saveJson(PROFILE_PATH, profile);
+    saveJson(getProfilePath(userId), profile);
   }
 }
 
 /** 更新用户画像（部分更新） */
-export async function updateProfile(updates: Partial<UserProfile>): Promise<void> {
-  const profile = await loadProfile();
+export async function updateProfile(updates: Partial<UserProfile>, userId: string = "anonymous"): Promise<void> {
+  const profile = await loadProfile(userId);
   Object.assign(profile, updates);
-  await saveProfile(profile);
+  await saveProfile(profile, userId);
 }
 
 /** 加载最近训练记录 */
-export async function loadRuns(): Promise<RunLog[]> {
-  await initCache();
+export async function loadRuns(userId: string = "anonymous"): Promise<RunLog[]> {
+  await initCache(userId);
   // 防御：如果缓存被意外设为 null，重新加载
-  if (cacheRuns == null) {
-    cacheLoaded = false;
-    await initCache();
+  if (cacheRunsMap.get(userId) == null) {
+    cacheLoadedSet.delete(userId);
+    await initCache(userId);
   }
-  return cacheRuns!;
+  return cacheRunsMap.get(userId)!;
 }
 
 /** 保存训练记录 */
-export async function saveRuns(runs: RunLog[]): Promise<void> {
-  cacheRuns = runs;
+export async function saveRuns(runs: RunLog[], userId: string = "anonymous"): Promise<void> {
+  cacheRunsMap.set(userId, runs);
   if (isRedisConfigured()) {
-    await saveRunsRedis(runs);
+    await saveRunsRedis(runs, userId);
     return;
   }
   if (!IS_VERCEL) {
-    saveJson(RUNS_PATH, runs);
+    saveJson(getRunsPath(userId), runs);
   }
 }
 
 /** 添加一条训练记录 */
-export async function addRun(run: RunLog): Promise<void> {
+export async function addRun(run: RunLog, userId: string = "anonymous"): Promise<void> {
   if (isRedisConfigured()) {
-    await addRunRedis(run);
+    await addRunRedis(run, userId);
     // 刷新缓存
-    const fresh = await loadRunsRedis();
-    cacheRuns = fresh || [];
+    const fresh = await loadRunsRedis(userId);
+    cacheRunsMap.set(userId, fresh || []);
     return;
   }
-  const runs = await loadRuns();
+  const runs = await loadRuns(userId);
   runs.unshift(run);
   if (runs.length > 20) runs.length = 20;
-  await saveRuns(runs);
+  await saveRuns(runs, userId);
 }
 
 /** 加载完整记忆状态 */
-export async function loadMemory(): Promise<MemoryState> {
-  const [profile, recentRuns] = await Promise.all([loadProfile(), loadRuns()]);
+export async function loadMemory(userId: string = "anonymous"): Promise<MemoryState> {
+  const [profile, recentRuns] = await Promise.all([loadProfile(userId), loadRuns(userId)]);
   return { profile, recentRuns };
 }
 

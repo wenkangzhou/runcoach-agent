@@ -23,9 +23,9 @@ export interface ProfileUpdate {
 }
 
 /** 从用户输入中提取 profile 更新 */
-export async function extractProfileUpdates(userInput: string): Promise<ProfileUpdate[]> {
+export async function extractProfileUpdates(userInput: string, userId: string = "anonymous"): Promise<ProfileUpdate[]> {
   const updates: ProfileUpdate[] = [];
-  const current = await loadProfile();
+  const current = await loadProfile(userId);
   const text = userInput.toLowerCase();
 
   // 1. 目标更新 - 严格匹配马拉松完赛时间（排除配速场景）
@@ -149,11 +149,11 @@ export async function extractProfileUpdates(userInput: string): Promise<ProfileU
 }
 
 /** 应用更新到 profile */
-export async function applyProfileUpdates(updates: ProfileUpdate[]): Promise<{
+export async function applyProfileUpdates(updates: ProfileUpdate[], userId: string = "anonymous"): Promise<{
   applied: ProfileUpdate[];
   rejected: ProfileUpdate[];
 }> {
-  const profile = await loadProfile();
+  const profile = await loadProfile(userId);
   const applied: ProfileUpdate[] = [];
   const rejected: ProfileUpdate[] = [];
 
@@ -170,25 +170,25 @@ export async function applyProfileUpdates(updates: ProfileUpdate[]): Promise<{
   }
 
   if (applied.length > 0) {
-    await saveProfile(profile);
+    await saveProfile(profile, userId);
   }
 
   return { applied, rejected };
 }
 
 /** 自动更新入口：分析用户输入并更新 */
-export async function autoUpdateProfile(userInput: string): Promise<{
+export async function autoUpdateProfile(userInput: string, userId: string = "anonymous"): Promise<{
   hasUpdate: boolean;
   updates: ProfileUpdate[];
   message: string;
 }> {
-  const updates = await extractProfileUpdates(userInput);
+  const updates = await extractProfileUpdates(userInput, userId);
 
   if (updates.length === 0) {
     return { hasUpdate: false, updates: [], message: "" };
   }
 
-  const { applied, rejected } = await applyProfileUpdates(updates);
+  const { applied, rejected } = await applyProfileUpdates(updates, userId);
 
   const lines = applied.map(
     (u) => `  ✓ ${u.field}: ${JSON.stringify(u.oldValue)} → ${JSON.stringify(u.newValue)}`
