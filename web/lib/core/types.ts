@@ -94,6 +94,7 @@ export interface RunLog {
   hr?: number;           // 平均心率
   feeling: string;       // 主观感受
   notes?: string;
+  route?: string;        // summary_polyline 路线编码
 }
 
 /** 记忆状态 */

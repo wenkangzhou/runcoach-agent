@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSession, signIn, signOut } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 import Chat from "../components/Chat";
 import Dashboard from "../components/dashboard/Dashboard";
 import ProfileCard from "../components/ProfileCard";
@@ -67,7 +67,7 @@ export default function Home() {
           </h1>
           <div style={styles.headerRight}>
             <p style={styles.subtitle}>AI 跑步教练 · 像展示作品一样展示你的跑步生涯</p>
-            {/* 登录状态 */}
+            {/* 登录状态 - 仅已登录时显示 */}
             <div style={styles.authArea}>
               {isLoggedIn ? (
                 <div style={styles.userInfo}>
@@ -83,14 +83,7 @@ export default function Home() {
                     登出
                   </button>
                 </div>
-              ) : (
-                <button
-                  style={styles.stravaLoginBtn}
-                  onClick={() => signIn("strava")}
-                >
-                  🏔️ 用 Strava 登录
-                </button>
-              )}
+              ) : null}
             </div>
           </div>
         </div>
@@ -301,16 +294,6 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: "4px",
     border: "1px solid var(--border)",
     cursor: "pointer",
-  },
-  stravaLoginBtn: {
-    fontSize: "12px",
-    padding: "5px 12px",
-    background: "#fc4c02",
-    color: "#fff",
-    borderRadius: "4px",
-    border: "none",
-    cursor: "pointer",
-    fontWeight: "bold",
   },
   reminderBanner: {
     display: "flex",

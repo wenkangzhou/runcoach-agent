@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import SharePoster from "./SharePoster";
 import type { PosterData } from "@/app/api/share/poster/route";
 
@@ -13,10 +13,24 @@ export default function ShareButton() {
   const [loading, setLoading] = useState(false);
   const [posterData, setPosterData] = useState<PosterData | null>(null);
   const [error, setError] = useState("");
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // 点击外部关闭下拉菜单
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const fetchPosterData = useCallback(async (weeks: string) => {
     setLoading(true);
     setError("");
+    setOpen(false);
     try {
       const res = await fetch(`/api/share/poster?weeks=${weeks}`);
       const data = await res.json();
@@ -35,37 +49,40 @@ export default function ShareButton() {
 
   return (
     <>
-      <div style={styles.container}>
+      <div ref={containerRef} style={styles.container}>
         <button
           style={styles.mainBtn}
-          onClick={() => fetchPosterData("1")}
+          onClick={() => setOpen(!open)}
           disabled={loading}
         >
           {loading ? "⏳ 加载中..." : "📤 生成分享海报"}
         </button>
-        <div style={styles.dropdown}>
-          <button
-            style={styles.dropBtn}
-            onClick={() => fetchPosterData("1")}
-            disabled={loading}
-          >
-            本周周报
-          </button>
-          <button
-            style={styles.dropBtn}
-            onClick={() => fetchPosterData("4")}
-            disabled={loading}
-          >
-            最近 4 周
-          </button>
-          <button
-            style={styles.dropBtn}
-            onClick={() => fetchPosterData("all")}
-            disabled={loading}
-          >
-            全部记录
-          </button>
-        </div>
+
+        {open && (
+          <div style={styles.dropdown}>
+            <button
+              style={styles.dropBtn}
+              onClick={() => fetchPosterData("1")}
+              disabled={loading}
+            >
+              本周周报
+            </button>
+            <button
+              style={styles.dropBtn}
+              onClick={() => fetchPosterData("4")}
+              disabled={loading}
+            >
+              最近 4 周
+            </button>
+            <button
+              style={styles.dropBtn}
+              onClick={() => fetchPosterData("all")}
+              disabled={loading}
+            >
+              全部记录
+            </button>
+          </div>
+        )}
         {error && <span style={styles.error}>{error}</span>}
       </div>
 

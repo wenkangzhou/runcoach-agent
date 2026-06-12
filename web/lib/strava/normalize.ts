@@ -112,6 +112,7 @@ export function toRunLog(run: NormalizedRun): import("../core/types.js").RunLog 
     hr: run.avgHr,
     feeling: run.feeling,
     notes: run.notes,
+    route: run.route,
   };
 }
 

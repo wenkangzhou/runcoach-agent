@@ -31,9 +31,11 @@ export default function StravaConnect() {
       if (res.ok) {
         const data = await res.json();
         setStatus(data);
+      } else {
+        setStatus({ connected: false });
       }
     } catch {
-      // 静默失败
+      setStatus({ connected: false });
     }
   }
 
