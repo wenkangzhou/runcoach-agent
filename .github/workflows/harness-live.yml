@@ -1,0 +1,65 @@
+name: Harness Live (Kimi)
+on:
+  workflow_dispatch:
+    inputs:
+      sample:
+        description: 'Number of cases to run (default: 5)'
+        required: false
+        default: '5'
+      concurrency:
+        description: 'Concurrency (default: 1 for Kimi)'
+        required: false
+        default: '1'
+
+  schedule:
+    - cron: '0 2 * * *'  # 每天凌晨 2 点自动运行
+
+jobs:
+  harness-live:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        working-directory: runcoach-agent
+        run: npm ci
+
+      - name: Run Harness (Live Kimi)
+        working-directory: runcoach-agent
+        env:
+          KIMI_API_KEY: ${{ secrets.KIMI_API_KEY }}
+        run: |
+          npm run harness -- \
+            --model=kimi \
+            --sample=${{ github.event.inputs.sample || '5' }} \
+            --concurrency=${{ github.event.inputs.concurrency || '1' }} \
+            --no-json
+        continue-on-error: true
+
+      - name: Upload Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: harness-live-report
+          path: runcoach-agent/harness-runs/*.html
+
+      - name: Notify Summary
+        if: always()
+        working-directory: runcoach-agent
+        run: |
+          latest=$(ls -t harness-runs/*.json | head -1)
+          if [ -f "$latest" ]; then
+            rate=$(jq -r '.summaries[0].passRate' "$latest")
+            total=$(jq -r '.summaries[0].total' "$latest")
+            passed=$(jq -r '.summaries[0].passed' "$latest")
+            echo "📊 Harness Live Summary: $passed/$total ($rate%)"
+            echo "PASS_RATE=$rate" >> $GITHUB_ENV
+          else
+            echo "⚠️ No report generated"
+            echo "PASS_RATE=0" >> $GITHUB_ENV
+          fi

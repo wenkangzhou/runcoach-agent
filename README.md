@@ -72,6 +72,17 @@ npm run dev -p 3675
 # 打开 http://localhost:3675
 ```
 
+### CLI 模式（Agent 核心调试）
+
+```bash
+cd runcoach-agent
+npm install
+npm run dev          # 运行一次 Agent 对话
+npm run eval         # 快速评测（20条用例，默认模式）
+npm run harness      # 完整回归测试（Harness v2）
+npm run dashboard    # 启动本地 Dashboard（端口 7365）
+```
+
 ### Vercel 部署
 
 1. 在 [Vercel Dashboard](https://vercel.com) 导入 GitHub 仓库
@@ -133,7 +144,15 @@ runcoach-agent/
 │   ├── workflow/                # Workflow 编排
 │   ├── multi-agent/             # Multi-Agent 协作
 │   ├── mcp/                     # MCP 协议
-│   └── eval/                    # 评测系统
+│   ├── eval/                    # 评测系统（20 条用例）
+│   └── harness/                 # Harness 回归测试系统
+│       ├── config/              # 测试套件配置（JSON）
+│       ├── evaluator/           # 可插拔评估器（rule / LLM judge / embedding）
+│       ├── runner/              # 环境隔离执行器 + 多轮对话 Runner
+│       ├── baseline/            # 基线管理（golden 回答）
+│       ├── reporter/            # 报告生成（JSON / Markdown / HTML / 部署）
+│       ├── db/                  # 历史数据库（JSON append-only）
+│       └── recommender.ts       # LLM 自动用例推荐
 │
 ├── docs/                        # 知识库
 └── README.md
@@ -270,9 +289,280 @@ Agent: 发现 3 条主要路线：
 - [ ] Strava Token 自动刷新
 - [ ] 向量数据库（Pinecone/Chroma）替换 TF-IDF
 - [ ] 更多 MCP Server（Garmin、Notion、Apple Health）
-- [ ] Eval 增强（embedding-based 语义相似度）
+- [ ] Eval 增强（embedding-based 语义相似度）→ **已完成：Harness v2**
 - [ ] 用户认证（NextAuth + 多用户隔离）
 - [ ] 社交功能（跑团、排行榜）
+
+---
+
+## 🧪 Harness 回归测试系统
+
+> **Harness v2 = 配置驱动测试套件 + 可插拔评估器 + 环境隔离 + 基线对比**
+
+### 核心设计
+
+```
+Suite JSON → Loader → Case × Model × Matrix → Runner(隔离/多轮) → Evaluator(多维度) → Baseline(对比) → Reporter(HTML/MD/JSON) → Deploy(Vercel)
+                                                                                                              ↓
+                                                                                                         Recommender(LLM)
+```
+
+| 特性 | 说明 |
+|------|------|
+| **配置驱动** | 测试用例写在 `src/harness/config/default-suite.json`，不硬编码 |
+| **可插拔评估器** | `rule` (关键词) + `llm-judge` (LLM裁判) + `embedding` (语义相似度) |
+| **环境隔离** | 每个用例运行前自动备份/清空/恢复 `profile.json` + `recent_runs.json` |
+| **参数矩阵** | 支持多组环境变量组合批量跑（如不同 temperature） |
+| **基线管理** | `--save-baseline` 保存 golden 回答，`--compare` 对比退化 |
+| **报告导出** | CLI 实时进度 + Markdown + JSON + HTML（可交互） |
+| **多轮对话** | `turns` 数组定义多轮用例，测试 Agent 上下文保持能力 |
+| **用例推荐** | `--recommend` 分析失败用例，LLM 自动生成新测试用例 |
+| **静态托管** | `--deploy` 一键生成 Vercel 部署包 |
+
+### 快速开始
+
+```bash
+# 1. 确保环境变量已配置（.env 或 .env.local）
+KIMI_API_KEY=xxx
+
+# 2. 运行完整回归测试（默认使用真实 Kimi，并发=1避免429）
+npm run harness
+
+# 3. 查看报告
+open harness-runs/20260615-xxx.html    # 浏览器打开 HTML 报告
+cat harness-runs/20260615-xxx.md       # 终端查看 Markdown
+```
+
+### 常用命令
+
+```bash
+# 快速抽样验证（只跑前 3 条用例，1 分钟出结果）
+npm run harness -- --sample=3
+
+# 分类过滤（只跑指定分类）
+npm run harness -- --category=伤病风险 --model=mock
+
+# 标签搜索（只跑带指定标签的用例）
+npm run harness -- --tag=recovery,injury --model=mock
+
+# 参数矩阵（传入 JSON 文件或内联配置）
+npm run harness -- --matrix=./src/harness/config/matrix-temperature.json --model=mock
+
+# 默认：自动检测可用模型（Kimi优先，没有则mock）
+npm run harness
+
+# 指定模型（mock 离线快速验证）
+npm run harness -- --model=mock
+
+# 多模型对比
+npm run harness -- --model=mock,kimi
+
+# 指定运行模式
+npm run harness -- --mode=workflow
+npm run harness -- --mode=multi
+
+# 保存基线（后续对比用）
+npm run harness -- --save-baseline
+
+# 与上次基线对比（看哪些用例退化了）
+npm run harness -- --compare
+
+# 失败后自动推荐新用例
+npm run harness -- --recommend
+
+# 一键生成静态托管包
+npm run harness -- --deploy
+
+# 组合：跑完 + 推荐 + 部署
+npm run harness -- --recommend --deploy
+
+# 调整并发（Kimi 429 时降到 1）
+npm run harness -- --concurrency=1
+
+# 只输出 JSON（CI 场景）
+npm run harness -- --no-md --no-html
+
+# 只打印配置不执行
+cd runcoach-agent && npm run harness -- --dry-run
+```
+
+### 测试套件配置
+
+```json
+// src/harness/config/default-suite.json
+{
+  "name": "RunCoach Core Suite",
+  "version": "1.0.0",
+  "cases": [
+    {
+      "id": "E001",
+      "name": "高强度长距离后疲劳恢复",
+      "category": "疲劳恢复",
+      "input": "我今天跑了 15km，配速 5:30，心率 155，感觉很累，明天该怎么跑？",
+      "tags": ["recovery", "high-load"],
+      "expectedParams": {
+        "mustInclude": ["恢复", "休息"],
+        "mustNotInclude": ["间歇", "阈值", "高强度"],
+        "expectedTool": "suggestNextWorkout",
+        "minScore": 80
+      }
+    }
+  ]
+}
+```
+
+每个用例通过 `expectedParams` 定义评估规则，无需修改代码即可新增测试。
+
+### 评估器配置
+
+```json
+// 在 harness 配置中指定多个评估器
+{
+  "evaluators": [
+    { "type": "rule", "weight": 0.6, "config": {} },
+    { "type": "llm-judge", "weight": 0.4, "config": { "criteria": "回答是否专业且安全" } }
+  ]
+}
+```
+
+| 评估器 | 适用场景 |
+|--------|----------|
+| `rule` | 硬性约束（关键词、工具调用、迭代次数） |
+| `llm-judge` | 柔性质量（语义理解、逻辑正确性） |
+| `embedding` | 语义相似度（与参考回答对比） |
+
+### 输出报告
+
+每次运行生成 3 份文件：
+
+| 文件 | 用途 |
+|------|------|
+| `harness-runs/20260615-xxx.json` | 完整数据，CI 解析 |
+| `harness-runs/20260615-xxx.md` | 人类可读，Git 提交 |
+| `harness-runs/20260615-xxx.html` | 浏览器打开，可交互查看 |
+
+### Dashboard 服务器
+
+```bash
+# 启动本地 Dashboard（默认端口 7365）
+npm run dashboard
+
+# 打开浏览器
+open http://localhost:7365
+```
+
+功能：
+- **趋势图表**：Chart.js 展示通过率、均分、耗时趋势
+- **历史列表**：所有运行记录，点击查看详情
+- **对比视图**：相邻两次运行的并排对比
+- **像素风 UI**：与跑蓝 Web 应用一致的 CRT 扫描线风格
+
+### 数据持久化
+
+每次运行自动追加到 `harness-runs/harness-db.json`：
+
+```json
+[
+  {
+    "runId": "20260615-xxx",
+    "timestamp": "2026-06-15T06:54:00Z",
+    "passRate": 50,
+    "avgScore": 80,
+    "totalDurationMs": 8
+  }
+]
+```
+
+API 端点：
+- `GET /api/records` — 所有历史记录
+- `GET /api/trend` — 趋势数据（供 Chart.js 使用）
+
+### Badge 徽章
+
+每次运行自动生成 `harness-runs/badge.svg`：
+
+```markdown
+![Harness](harness-runs/badge.svg)
+```
+
+- 绿色 ≥ 80%：通过
+- 黄色 50-80%：警告
+- 红色 < 50%：失败
+
+### 性能指标
+
+每次运行自动收集性能数据：
+
+| 指标 | 说明 |
+|------|------|
+| `avgLlmDecisionMs` | LLM 决策平均耗时 |
+| `avgToolCallsMs` | 工具调用平均耗时 |
+| `avgEvaluationMs` | 评估平均耗时 |
+| `avgTokensPerCase` | 每用例平均 Token 消耗 |
+
+在 Dashboard 的 `/run/:id` 页面查看详情。
+
+### 多轮对话测试
+
+测试 Agent 在多轮对话中保持上下文的能力。用例定义使用 `turns` 数组而非 `input`：
+
+```json
+{
+  "id": "M001",
+  "name": "多轮目标记忆",
+  "category": "多轮对话",
+  "tags": ["multi-turn", "memory"],
+  "turns": [
+    { "input": "我目标全马 3:20，麻烦记下来" },
+    { "input": "明天该跑什么？", "expectedParams": { "mustInclude": ["3:20"] } }
+  ]
+}
+```
+
+特点：
+- 多轮用例**不重置内存**，AgentContext 在轮次间传递
+- 每轮有独立的 `expectedParams`，可覆盖或继承
+- HTML 报告中用「M」标记多轮用例，展开查看每轮详情
+
+### 用例自动推荐
+
+Harness 运行后，分析失败用例并调用 LLM 推荐新测试用例：
+
+```bash
+# 跑完自动推荐
+npm run harness -- --recommend
+
+# 推荐结果保存至 harness-runs/harness-recommended-{runId}.json
+```
+
+LLM 会分析失败原因，生成 3-5 个针对性新用例，直接可用于下一轮测试。
+
+### 报告静态托管
+
+一键生成 Vercel 可部署的静态站点：
+
+```bash
+# 跑完自动生成部署包
+npm run harness -- --deploy
+
+# 部署到 Vercel
+cd harness-deploy
+npx vercel --prod
+```
+
+生成的 `harness-deploy/` 包含：
+- 索引页（与报告一致的像素风 UI）
+- 所有历史报告文件
+- `vercel.json` 配置
+
+### 已知限制
+
+| 问题 | 状态 | 说明 |
+|------|------|------|
+| Kimi API 429 | 🟡 缓解 | 并发默认 1，SDK 自动重试 3 次；高峰期仍可能触发 |
+| LLM-as-a-Judge | 🟡 部分 | 已接入真实 LLM，但 Token 消耗未完全追踪 |
+| Embedding 评估 | 🔵 简单 | 当前使用 TF-IDF 分词，精度有限 |
+| 参数矩阵 | 🟡 可用 | 配置层已支持，CLI 可传入 JSON 文件 |
 
 ---
 

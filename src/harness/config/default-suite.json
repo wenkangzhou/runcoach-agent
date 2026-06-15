@@ -1,0 +1,332 @@
+{
+  "name": "RunCoach Core Suite",
+  "description": "20条核心测试用例，覆盖疲劳恢复、伤病风险、周跑量控制、目标匹配、时间限制、状态良好、知识库、工具调用8大分类",
+  "version": "1.0.0",
+  "defaults": {
+    "mode": "agent",
+    "maxIterations": 5
+  },
+  "cases": [
+    {
+      "id": "E001",
+      "name": "高强度长距离后疲劳恢复",
+      "category": "疲劳恢复",
+      "input": "我今天跑了 15km，配速 5:30，心率 155，感觉很累，明天该怎么跑？",
+      "tags": ["recovery", "high-load"],
+      "expectedParams": {
+        "mustInclude": ["恢复", "休息"],
+        "mustNotInclude": ["间歇", "阈值", "高强度", "冲"],
+        "expectedTool": "suggestNextWorkout",
+        "minScore": 80
+      }
+    },
+    {
+      "id": "E002",
+      "name": "间歇后酸痛不应阈值",
+      "category": "疲劳恢复",
+      "input": "昨天跑了间歇，今天腿酸，晚上还能跑阈值吗？",
+      "tags": ["recovery", "interval"],
+      "expectedParams": {
+        "mustInclude": ["不建议", "恢复"],
+        "mustNotInclude": ["阈值", "可以跑", "继续"],
+        "expectedTool": "suggestNextWorkout",
+        "minScore": 85
+      }
+    },
+    {
+      "id": "E003",
+      "name": "周频率过高疲劳",
+      "category": "疲劳恢复",
+      "input": "这周跑了 5 次，每次 10km，今天感觉腿很沉，明天怎么安排？",
+      "tags": ["recovery", "frequency"],
+      "expectedParams": {
+        "mustInclude": ["休息", "恢复"],
+        "mustNotInclude": ["跑", "训练", "强度"],
+        "expectedTool": "suggestNextWorkout",
+        "minScore": 80
+      }
+    },
+    {
+      "id": "E004",
+      "name": "膝盖痛加距离应阻止",
+      "category": "伤病风险",
+      "input": "今天跑了 8km，配速 5:40，膝盖有点痛，明天想跑 15km 可以吗？",
+      "tags": ["injury", "knee"],
+      "expectedParams": {
+        "mustInclude": ["不建议", "膝盖", "休息", "就医"],
+        "mustNotInclude": ["15km", "可以", "没问题"],
+        "expectedTool": "suggestNextWorkout",
+        "minScore": 90
+      }
+    },
+    {
+      "id": "E005",
+      "name": "小腿紧想跑快",
+      "category": "伤病风险",
+      "input": "小腿有点紧，但本周只跑了 20km，明天想跑快一点，可以吗？",
+      "tags": ["injury", "calf"],
+      "expectedParams": {
+        "mustInclude": ["不建议", "小腿", "恢复"],
+        "mustNotInclude": ["快", "冲", "PB"],
+        "expectedTool": "suggestNextWorkout",
+        "minScore": 85
+      }
+    },
+    {
+      "id": "E006",
+      "name": "急性伤病完全禁止",
+      "category": "伤病风险",
+      "input": "脚踝扭伤了，但下周有比赛，这周还能训练吗？",
+      "tags": ["injury", "acute"],
+      "expectedParams": {
+        "mustInclude": ["不能", "休息", "恢复", "医生"],
+        "mustNotInclude": ["可以跑", "训练", "比赛"],
+        "expectedTool": "suggestNextWorkout",
+        "minScore": 90
+      }
+    },
+    {
+      "id": "E007",
+      "name": "周跑量高不应加长距离",
+      "category": "周跑量",
+      "input": "这周已经跑了 70km，今天感觉不错，明天想跑个 20km 长距离，可以吗？",
+      "tags": ["volume", "high"],
+      "expectedParams": {
+        "mustInclude": ["不建议", "减量", "休息"],
+        "mustNotInclude": ["20km", "长距离", "可以"],
+        "expectedTool": "suggestNextWorkout",
+        "minScore": 85
+      }
+    },
+    {
+      "id": "E008",
+      "name": "周跑量低状态好正常训练",
+      "category": "周跑量",
+      "input": "本周只跑了 15km，状态很好，明天怎么安排？",
+      "tags": ["volume", "low"],
+      "expectedParams": {
+        "mustInclude": ["有氧", "基础", "跑"],
+        "mustNotInclude": ["休息", "减量"],
+        "expectedTool": "suggestNextWorkout",
+        "minScore": 70
+      }
+    },
+    {
+      "id": "E009",
+      "name": "目标3:20匹配配速",
+      "category": "目标匹配",
+      "input": "我目标是全马 3:20，今天跑了 10km 轻松跑，明天该跑什么？",
+      "tags": ["goal", "pace"],
+      "expectedParams": {
+        "mustInclude": ["3:20", "配速"],
+        "mustNotInclude": ["2:50", "4:00"],
+        "expectedTool": "suggestNextWorkout",
+        "minScore": 75
+      }
+    },
+    {
+      "id": "E010",
+      "name": "破3需要强度训练",
+      "category": "目标匹配",
+      "input": "目标全马破 3，这周该怎么安排强度？",
+      "tags": ["goal", "intensity"],
+      "expectedParams": {
+        "mustInclude": ["间歇", "阈值", "节奏"],
+        "mustNotInclude": ["只跑轻松", "不需要强度"],
+        "expectedTool": "suggestNextWorkout",
+        "minScore": 70
+      }
+    },
+    {
+      "id": "E011",
+      "name": "30分钟时间限制",
+      "category": "时间限制",
+      "input": "我只有 30 分钟，今天想跑一下，该怎么安排？",
+      "tags": ["time", "short"],
+      "expectedParams": {
+        "mustInclude": ["30", "分钟"],
+        "mustNotInclude": ["60", "90", "小时"],
+        "expectedTool": "suggestNextWorkout",
+        "minScore": 75
+      }
+    },
+    {
+      "id": "E012",
+      "name": "45分钟高质量训练",
+      "category": "时间限制",
+      "input": "早上只有 45 分钟，想跑个高质量的，怎么安排？",
+      "tags": ["time", "quality"],
+      "expectedParams": {
+        "mustInclude": ["45", "节奏", "阈值"],
+        "mustNotInclude": ["长距离", "90"],
+        "expectedTool": "suggestNextWorkout",
+        "minScore": 75
+      }
+    },
+    {
+      "id": "E013",
+      "name": "状态好周跑量正常",
+      "category": "状态良好",
+      "input": "今天休息，感觉很好，这周跑了 30km，明天怎么安排？",
+      "tags": ["good", "normal"],
+      "expectedParams": {
+        "mustInclude": ["有氧", "基础", "跑"],
+        "mustNotInclude": ["休息", "恢复"],
+        "expectedTool": "suggestNextWorkout",
+        "minScore": 70
+      }
+    },
+    {
+      "id": "E014",
+      "name": "轻松日后想上强度",
+      "category": "状态良好",
+      "input": "今天轻松跑了 5km，感觉很好，明天想跑个强度，可以吗？",
+      "tags": ["good", "intensity"],
+      "expectedParams": {
+        "mustInclude": ["可以", "间歇", "阈值", "节奏"],
+        "mustNotInclude": ["不建议", "休息"],
+        "expectedTool": "suggestNextWorkout",
+        "minScore": 70
+      }
+    },
+    {
+      "id": "E015",
+      "name": "马拉松早餐补给",
+      "category": "知识库",
+      "input": "马拉松比赛当天早餐吃什么？",
+      "tags": ["knowledge", "fueling"],
+      "expectedParams": {
+        "mustInclude": ["早餐", "碳水"],
+        "mustNotInclude": ["不知道", "不清楚"],
+        "expectedTool": "retrieveKnowledge",
+        "minScore": 70
+      }
+    },
+    {
+      "id": "E016",
+      "name": "心率区间Z2",
+      "category": "知识库",
+      "input": "心率区间怎么划分？Z2 是什么？",
+      "tags": ["knowledge", "hr-zone"],
+      "expectedParams": {
+        "mustInclude": ["Z2", "有氧", "心率"],
+        "mustNotInclude": ["不知道"],
+        "expectedTool": "retrieveKnowledge",
+        "minScore": 70
+      }
+    },
+    {
+      "id": "E017",
+      "name": "跑者膝预防",
+      "category": "知识库",
+      "input": "膝盖有点痛，是不是跑者膝？怎么预防？",
+      "tags": ["knowledge", "injury"],
+      "expectedParams": {
+        "mustInclude": ["跑者膝", "预防", "膝盖"],
+        "mustNotInclude": ["不知道"],
+        "expectedTool": "retrieveKnowledge",
+        "minScore": 70
+      }
+    },
+    {
+      "id": "E018",
+      "name": "上海天气查询",
+      "category": "工具调用",
+      "input": "上海明天适合跑步吗？",
+      "tags": ["tool", "weather"],
+      "expectedParams": {
+        "mustInclude": ["天气", "上海"],
+        "mustNotInclude": [],
+        "expectedTool": "getWeather",
+        "minScore": 60
+      }
+    },
+    {
+      "id": "E019",
+      "name": "配速计算",
+      "category": "工具调用",
+      "input": "帮我计算 5:40 配速跑 10km 需要多少分钟",
+      "tags": ["tool", "math"],
+      "expectedParams": {
+        "mustInclude": ["57", "分钟"],
+        "mustNotInclude": [],
+        "expectedTool": "calculate",
+        "minScore": 80
+      }
+    },
+    {
+      "id": "M001",
+      "name": "多轮目标记忆",
+      "category": "多轮对话",
+      "tags": ["multi-turn", "memory", "goal"],
+      "turns": [
+        {
+          "input": "我目标全马 3:20，麻烦记下来",
+          "expectedParams": {
+            "mustInclude": ["3:20"],
+            "expectedTool": "suggestNextWorkout",
+            "minScore": 60
+          }
+        },
+        {
+          "input": "明天该跑什么？",
+          "expectedParams": {
+            "mustInclude": ["3:20", "配速"],
+            "expectedTool": "suggestNextWorkout",
+            "minScore": 70
+          }
+        }
+      ]
+    },
+    {
+      "id": "M002",
+      "name": "多轮伤病跟进",
+      "category": "多轮对话",
+      "tags": ["multi-turn", "memory", "injury"],
+      "turns": [
+        {
+          "input": "上周脚踝扭伤了，还在恢复",
+          "expectedParams": {
+            "mustInclude": ["恢复", "脚踝"],
+            "expectedTool": "suggestNextWorkout",
+            "minScore": 60
+          }
+        },
+        {
+          "input": "这周感觉好点了，可以慢跑了吗？",
+          "expectedParams": {
+            "mustInclude": ["脚踝", "慢跑", "建议"],
+            "mustNotInclude": ["间歇", "高强度"],
+            "expectedTool": "suggestNextWorkout",
+            "minScore": 75
+          }
+        }
+      ]
+    },
+    {
+      "id": "M003",
+      "name": "多轮周跑量记忆",
+      "category": "多轮对话",
+      "tags": ["multi-turn", "memory", "volume"],
+      "turns": [
+        {
+          "input": "今天跑了 12km，这周累计 65km 了",
+          "expectedParams": {
+            "mustInclude": ["12km"],
+            "expectedTool": "parseRunLog",
+            "minScore": 60
+          }
+        },
+        {
+          "input": "明天想再跑个 15km 长距离，可以吗？",
+          "expectedParams": {
+            "mustInclude": ["不建议", "65", "休息"],
+            "mustNotInclude": ["15km", "可以"],
+            "expectedTool": "suggestNextWorkout",
+            "minScore": 80
+          }
+        }
+      ]
+    }
+  ]
+}

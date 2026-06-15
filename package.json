@@ -9,6 +9,8 @@
     "dev": "tsx src/index.ts",
     "mcp": "tsx src/mcp-demo.ts",
     "eval": "tsx src/eval-cli.ts",
+    "harness": "tsx src/harness-cli.ts",
+    "dashboard": "tsx src/harness-dashboard.ts",
     "acceptance": "tsx src/acceptance.ts",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit"

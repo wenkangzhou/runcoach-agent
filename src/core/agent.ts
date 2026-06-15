@@ -72,11 +72,15 @@ ${knowledgeContext}
 }
 
 /** 运行 Agent 循环 */
-export async function runAgent(userInput: string): Promise<{
+export async function runAgent(
+  userInput: string,
+  existingContext?: AgentContext
+): Promise<{
   answer: string;
   toolCalls: ToolResult[];
   iterations: number;
   memoryUpdate?: string;
+  context: AgentContext;
 }> {
   // Day 8: 初始化 MCP 工具
   await initMCPTools();
@@ -88,13 +92,21 @@ export async function runAgent(userInput: string): Promise<{
     console.warn("⚠️ 向量数据库初始化失败，将使用关键词检索回退:", err instanceof Error ? err.message : String(err));
   }
 
-  const context = await createContext(userInput);
+  let context: AgentContext;
+  if (existingContext) {
+    context = existingContext;
+    context.messages.push({ role: "user", content: userInput });
+    console.log(`\n🏃 RunCoach Agent 继续对话`);
+    console.log(`用户: "${userInput}"`);
+  } else {
+    context = await createContext(userInput);
+    console.log(`\n🏃 RunCoach Agent 启动`);
+    console.log(`用户: "${userInput}"`);
+  }
+  console.log(`-`.repeat(40));
+
   const toolCalls: ToolResult[] = [];
   const tools = getToolDescriptions();
-
-  console.log(`\n🏃 RunCoach Agent 启动`);
-  console.log(`用户: "${userInput}"`);
-  console.log(`-`.repeat(40));
 
   while (context.iteration < context.maxIterations) {
     context.iteration++;
@@ -105,13 +117,13 @@ export async function runAgent(userInput: string): Promise<{
     console.log(`🧠 LLM 决策: ${action.type}`);
 
     if (action.type === "clarify") {
-      return finalize(userInput, `需要澄清: ${action.question}`, toolCalls, context.iteration);
+      return finalize(userInput, `需要澄清: ${action.question}`, toolCalls, context);
     }
 
     if (action.type === "answer") {
       console.log(`✅ 直接回答`);
       const answer = formatAnswer(action.content, toolCalls);
-      return finalize(userInput, answer, toolCalls, context.iteration);
+      return finalize(userInput, answer, toolCalls, context);
     }
 
     if (action.type === "tool") {
@@ -157,8 +169,9 @@ export async function runAgent(userInput: string): Promise<{
 
   // 达到最大迭代次数，强制返回
   console.log(`⚠️ 达到最大迭代次数`);
-  return finalize(userInput, "Agent 思考次数过多，请简化问题或稍后重试。", toolCalls, context.iteration);
+  return finalize(userInput, "Agent 思考次数过多，请简化问题或稍后重试。", toolCalls, context);
 }
+
 
 /** 格式化最终回答 */
 function formatAnswer(rawAnswer: string, toolCalls: ToolResult[]): string {
@@ -189,12 +202,13 @@ function finalize(
   userInput: string,
   answer: string,
   toolCalls: ToolResult[],
-  iterations: number
+  context: AgentContext
 ): {
   answer: string;
   toolCalls: ToolResult[];
   iterations: number;
   memoryUpdate: string;
+  context: AgentContext;
 } {
   let memoryUpdate = "";
 
@@ -220,5 +234,5 @@ function finalize(
     memoryUpdate += `\n${update.message}`;
   }
 
-  return { answer, toolCalls, iterations, memoryUpdate };
+  return { answer, toolCalls, iterations: context.iteration, memoryUpdate, context };
 }

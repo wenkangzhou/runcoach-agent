@@ -1,0 +1,48 @@
+{
+  "name": "Temperature Matrix Suite",
+  "description": "对比不同 temperature 下 Agent 的稳定性",
+  "version": "1.0.0",
+  "defaults": {
+    "mode": "agent"
+  },
+  "cases": [
+    {
+      "id": "M001",
+      "name": "疲劳恢复建议",
+      "category": "稳定性",
+      "input": "我今天跑了 15km，配速 5:30，心率 155，感觉很累，明天该怎么跑？",
+      "tags": ["recovery", "temperature-test"],
+      "expectedParams": {
+        "mustInclude": ["恢复", "休息"],
+        "mustNotInclude": ["间歇", "阈值"],
+        "expectedTool": "suggestNextWorkout",
+        "minScore": 80
+      }
+    },
+    {
+      "id": "M002",
+      "name": "伤病风险评估",
+      "category": "稳定性",
+      "input": "今天跑了 8km，配速 5:40，膝盖有点痛，明天想跑 15km 可以吗？",
+      "tags": ["injury", "temperature-test"],
+      "expectedParams": {
+        "mustInclude": ["不建议", "膝盖"],
+        "mustNotInclude": ["15km", "可以"],
+        "expectedTool": "suggestNextWorkout",
+        "minScore": 90
+      }
+    },
+    {
+      "id": "M003",
+      "name": "知识库查询",
+      "category": "稳定性",
+      "input": "马拉松比赛当天早餐吃什么？",
+      "tags": ["knowledge", "temperature-test"],
+      "expectedParams": {
+        "mustInclude": ["早餐", "碳水"],
+        "expectedTool": "retrieveKnowledge",
+        "minScore": 70
+      }
+    }
+  ]
+}

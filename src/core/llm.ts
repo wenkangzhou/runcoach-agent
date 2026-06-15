@@ -115,6 +115,20 @@ export async function decideNextAction(
   return callMockLLM(messages, tools);
 }
 
+/** 检查是否为 429 限流错误 */
+function isRateLimited(err: unknown): boolean {
+  if (err instanceof Error) {
+    const msg = err.message.toLowerCase();
+    return msg.includes("429") || msg.includes("overloaded") || msg.includes("rate limit") || msg.includes("too many requests");
+  }
+  return false;
+}
+
+/** 指数退避等待 */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 /** 真实 LLM API 调用（Kimi / OpenAI 兼容） */
 async function callRealLLM(
   messages: Message[],
@@ -122,10 +136,38 @@ async function callRealLLM(
 ): Promise<NextAction> {
   const model = getModel();
   const provider = getProvider();
+  const maxRetries = 3;
+  let lastError: Error | null = null;
 
-  try {
-    // 转换消息为 OpenAI API 格式
-    const apiMessages = messages.map((m) => {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await _callRealLLMOnce(messages, tools, model, provider);
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      if (isRateLimited(err) && attempt < maxRetries) {
+        const backoffMs = 2000 * Math.pow(2, attempt); // 2s, 4s, 8s
+        console.log(`⏳ ${provider} 429，等待 ${backoffMs}ms 后重试 (${attempt + 1}/${maxRetries})...`);
+        await sleep(backoffMs);
+        continue;
+      }
+      break;
+    }
+  }
+
+  console.error(`❌ ${provider} API 调用失败（已重试 ${maxRetries} 次）:`, lastError?.message || "未知错误");
+  console.log("🔄 回退到模拟 LLM...");
+  return callMockLLM(messages, tools);
+}
+
+/** 单次 LLM API 调用 */
+async function _callRealLLMOnce(
+  messages: Message[],
+  tools: ToolDescription[],
+  model: string,
+  provider: LLMProvider
+): Promise<NextAction> {
+  // 转换消息为 OpenAI API 格式
+  const apiMessages = messages.map((m) => {
       if (m.role === "assistant" && m.toolCalls) {
         return {
           role: "assistant",
@@ -197,17 +239,10 @@ async function callRealLLM(
 
     // 直接回答
     return { type: "answer", content: response.content || "" };
-  } catch (err) {
-    const error = err instanceof Error ? err.message : String(err);
-    console.error(`❌ ${provider} API 调用失败:`, error);
-    // API 失败时回退到模拟模式
-    console.log("🔄 回退到模拟 LLM...");
-    return callMockLLM(messages, tools);
   }
-}
 
-/** 模拟 LLM（基于关键词的简单规则） */
-async function callMockLLM(
+  /** 模拟 LLM（基于关键词的简单规则） */
+  async function callMockLLM(
   messages: Message[],
   tools: ToolDescription[]
 ): Promise<NextAction> {
@@ -380,4 +415,32 @@ async function callMockLLM(
 2. 填入 KIMI_API_KEY（推荐）或 OPENAI_API_KEY
 3. 重新运行`,
   };
+}
+
+// ==========================================
+// LLM-as-a-Judge 通用文本调用
+// ==========================================
+
+/** 调用 LLM 获取纯文本回答（用于 Judge 等场景） */
+export async function callLLMText(prompt: string): Promise<string> {
+  await initLLMClient();
+  const provider = getProvider();
+
+  if (provider === "mock" || !openaiClient) {
+    return "【模拟模式】无法调用真实 LLM 进行裁判。";
+  }
+
+  try {
+    const model = getModel();
+    const completion = await openaiClient.chat.completions.create({
+      model,
+      temperature: 0.3,
+      messages: [{ role: "user", content: prompt }],
+    });
+    return completion.choices[0].message.content || "";
+  } catch (err) {
+    const error = err instanceof Error ? err.message : String(err);
+    console.error(`❌ Judge LLM 调用失败:`, error);
+    return "ERROR: " + error;
+  }
 }

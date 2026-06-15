@@ -1,0 +1,47 @@
+name: Harness
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  harness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        working-directory: runcoach-agent
+        run: npm ci
+
+      - name: Run Harness
+        working-directory: runcoach-agent
+        env:
+          KIMI_API_KEY: ${{ secrets.KIMI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: npm run harness -- --model=mock --sample=5 --concurrency=3
+
+      - name: Upload Harness Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: harness-report
+          path: runcoach-agent/harness-runs/*
+
+      - name: Check Pass Rate
+        working-directory: runcoach-agent
+        run: |
+          latest=$(ls -t harness-runs/*.json | head -1)
+          rate=$(jq -r '.summaries[0].passRate' "$latest")
+          echo "Pass rate: $rate%"
+          if [ "$rate" -lt 50 ]; then
+            echo "❌ Pass rate below 50%, failing build"
+            exit 1
+          fi
+          echo "✅ Pass rate OK"
