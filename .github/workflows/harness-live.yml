@@ -26,11 +26,9 @@ jobs:
           node-version: 20
 
       - name: Install dependencies
-        working-directory: runcoach-agent
-        run: npm ci
+        run: npm install
 
       - name: Run Harness (Live Kimi)
-        working-directory: runcoach-agent
         env:
           KIMI_API_KEY: ${{ secrets.KIMI_API_KEY }}
         run: |
@@ -46,11 +44,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: harness-live-report
-          path: runcoach-agent/harness-runs/*.html
+          path: harness-runs/*.html
 
       - name: Notify Summary
         if: always()
-        working-directory: runcoach-agent
         run: |
           latest=$(ls -t harness-runs/*.json | head -1)
           if [ -f "$latest" ]; then
